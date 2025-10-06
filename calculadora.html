@@ -45,7 +45,7 @@
             border-radius: 8px;
             box-sizing: border-box;
             font-size: 1em;
-            appearance: none; /* Quitar estilo nativo en selects */
+            appearance: none; 
         }
         #resultado {
             margin-top: 30px;
@@ -79,11 +79,19 @@
             <label for="origen">De:</label>
             <select id="origen" onchange="convertir()">
                 <option value="USD">USD - Dólar Estadounidense</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="COP">COP - Peso Colombiano</option>
                 <option value="VES">VES - Bolívar Soberano</option>
+                <option value="COP">COP - Peso Colombiano</option>
+                <option value="EUR">EUR - Euro</option>
                 <option value="MXN">MXN - Peso Mexicano</option>
                 <option value="ARS">ARS - Peso Argentino</option>
+                <option value="PEN">PEN - Sol Peruano</option>
+                <option value="CLP">CLP - Peso Chileno</option>
+                <option value="BRL">BRL - Real Brasileño</option>
+                <option value="PYG">PYG - Guaraní Paraguayo</option>
+                <option value="DOP">DOP - Peso Dominicano</option>
+                <option value="BOB">BOB - Boliviano</option>
+                <option value="CRC">CRC - Colón Costarricense</option>
+                <option value="UYU">UYU - Peso Uruguayo</option>
             </select>
         </div>
 
@@ -92,10 +100,18 @@
             <select id="destino" onchange="convertir()">
                 <option value="COP">COP - Peso Colombiano</option>
                 <option value="USD">USD - Dólar Estadounidense</option>
-                <option value="EUR">EUR - Euro</option>
                 <option value="VES">VES - Bolívar Soberano</option>
+                <option value="EUR">EUR - Euro</option>
                 <option value="MXN">MXN - Peso Mexicano</option>
                 <option value="ARS">ARS - Peso Argentino</option>
+                <option value="PEN">PEN - Sol Peruano</option>
+                <option value="CLP">CLP - Peso Chileno</option>
+                <option value="BRL">BRL - Real Brasileño</option>
+                <option value="PYG">PYG - Guaraní Paraguayo</option>
+                <option value="DOP">DOP - Peso Dominicano</option>
+                <option value="BOB">BOB - Boliviano</option>
+                <option value="CRC">CRC - Colón Costarricense</option>
+                <option value="UYU">UYU - Peso Uruguayo</option>
             </select>
         </div>
 
@@ -105,12 +121,11 @@
     </div>
 
     <script>
-        const API_BASE_URL = "https://noctus.jairokov.com"; // ¡Tu API!
+        const API_BASE_URL = "https://noctus.jairokov.com"; 
         
-        // Formato de moneda para mostrar el resultado
         const formatter = new Intl.NumberFormat('es-CO', {
             style: 'currency',
-            currency: 'COP', // Se actualizará al destino
+            currency: 'COP', 
             minimumFractionDigits: 2
         });
 
@@ -127,7 +142,7 @@
 
             resultadoDiv.innerHTML = '<span class="loading">Calculando...</span>';
 
-            // 1. Construir la URL del endpoint /convertir
+            // 1. Construir la URL
             const url = `${API_BASE_URL}/convertir?cantidad=${cantidad}&origen=${origen}&destino=${destino}`;
 
             try {
@@ -137,15 +152,15 @@
 
                 // 3. Procesar y mostrar el resultado
                 if (data.status === "success") {
-                    // Actualizar el formateador para la moneda de destino (solo como ejemplo visual)
+                    // Actualizar el formateador para la moneda de destino
+                    // Nota: Esto es solo para la presentación, no afecta el cálculo.
                     formatter.currency = destino; 
 
-                    // Formatear el monto y mostrarlo
                     const montoFormateado = formatter.format(data.monto_convertido);
                     resultadoDiv.innerHTML = `${montoFormateado} (${destino})`;
                 } else {
                     resultadoDiv.textContent = `Error: ${data.error}`;
-                    resultadoDiv.style.color = '#e74c3c'; // Rojo para errores
+                    resultadoDiv.style.color = '#e74c3c'; 
                 }
 
             } catch (error) {
@@ -155,7 +170,7 @@
             }
         }
 
-        // Llamar a la función al cargar la página para mostrar un resultado inicial
+        // Llamar a la función al cargar la página 
         document.addEventListener('DOMContentLoaded', convertir);
     </script>
 </body>
