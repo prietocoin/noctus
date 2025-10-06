@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 8080;
 const CREDENTIALS_PATH = '/workspace/credentials.json'; 
 const SPREADSHEET_ID = '19Lzcyy3YyeoGCffCjoDHK1tXgn_QkPmhGl7vbDHyrMU';
 const MAIN_SHEET_NAME = 'Datos_Para_La_App'; 
-const RANGO_TASAS = 'A1:AL999'; // Rango de la tabla de tasas dinámicas
+const RANGO_TASAS = 'A1:AL999'; 
 
 // --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
 
@@ -89,8 +89,11 @@ app.use((req, res, next) => {
 
 // Ruta raíz que ahora devuelve HTML con enlaces directos
 app.get('/', (req, res) => {
+    // CORRECCIÓN: Obtenemos el protocolo para construir URL absolutas perfectas
+    const protocol = req.protocol || (req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http');
     const hostUrl = req.headers.host; 
-    
+    const fullHostUrl = `${protocol}://${hostUrl}`;
+
     const endpoints = [
         { path: '/tasas', description: 'Tabla 1: Datos Dinámicos (Tasas de Monedas)' },
         { path: '/matriz_cruce', description: 'Tabla 2: Matriz de Cruce Estática' },
@@ -98,7 +101,7 @@ app.get('/', (req, res) => {
         { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Final)' } 
     ];
     
-    // Simplificación de HTML por espacio, pero asume que el código HTML está completo
+    // RESTAURACIÓN COMPLETA DEL HTML Y CSS
     const htmlContent = `
         <!DOCTYPE html>
         <html lang="es">
@@ -106,18 +109,77 @@ app.get('/', (req, res) => {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>NOCTUS API - Endpoints</title>
-            </head>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #0d1117; 
+                    color: #c9d1d9; 
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                    margin: 0;
+                }
+                .container {
+                    background-color: #161b22; 
+                    padding: 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+                    width: 90%;
+                    max-width: 600px;
+                }
+                h1 {
+                    color: #58a6ff; 
+                    border-bottom: 2px solid #30363d;
+                    padding-bottom: 10px;
+                    margin-top: 0;
+                }
+                .endpoint-list {
+                    list-style: none;
+                    padding: 0;
+                }
+                .endpoint-item {
+                    margin-bottom: 15px;
+                    background-color: #21262d; 
+                    padding: 15px;
+                    border-radius: 8px;
+                    transition: background-color 0.3s;
+                }
+                .endpoint-item:hover {
+                    background-color: #30363d;
+                }
+                .endpoint-item a {
+                    text-decoration: none;
+                    color: #58a6ff;
+                    font-weight: bold;
+                    display: block;
+                    font-size: 1.1em;
+                    margin-bottom: 5px;
+                    word-wrap: break-word; /* Para URLs largas */
+                }
+                .endpoint-item p {
+                    margin: 0;
+                    color: #8b949e; 
+                    font-size: 0.9em;
+                }
+            </style>
+        </head>
         <body>
             <div class="container">
                 <h1>API de NOCTUS en Línea</h1>
                 <p>El servicio de datos de Google Sheets está funcionando. Haz clic en un enlace para acceder a los datos JSON de la tabla correspondiente:</p>
                 <ul class="endpoint-list">
-                    ${endpoints.map(ep => `
+                    ${endpoints.map(ep => {
+                        // CORRECCIÓN CLAVE: Usamos URL absolutas para el texto y la URL.
+                        const linkPath = ep.path.startsWith('/') ? ep.path : '/' + ep.path;
+                        const fullLinkUrl = fullHostUrl + linkPath;
+                        return `
                         <li class="endpoint-item">
-                            <a href="${ep.path.includes('?') ? ep.path : hostUrl + ep.path}">${ep.path}</a>
+                            <a href="${linkPath}">${fullLinkUrl}</a>
                             <p>${ep.description}</p>
                         </li>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </ul>
                 <p style="text-align: center; font-size: 0.8em; color: #484f58;">Nota: Esta página es solo para referencia. Los datos son entregados en formato JSON.</p>
             </div>
@@ -196,7 +258,7 @@ app.get('/convertir', async (req, res) => {
     }
 
     try {
-        // 2. OBTENER Y FILTRAR TASAS DINÁMICAS (Versión corregida)
+        // 2. OBTENER Y FILTRAR TASAS DINÁMICAS
         const allTasas = await getSheetData(RANGO_TASAS); 
         
         const latestRow = allTasas.reduce((max, current) => {
@@ -217,7 +279,7 @@ app.get('/convertir', async (req, res) => {
         const T_D_str = latestRow[Tasa_D_key];
         
         if (!T_O_str || !T_D_str) {
-             return res.status(404).json({ error: `Clave no encontrada en Sheets para ${O} o ${D}. Verifica que el encabezado sea ${Tasa_O_key} y ${Tasa_D_key}.` });
+             return res.status(404).json({ error: `Clave no encontrada en Sheets para ${O} o ${D}. Verifica que el encabezado sea exactamente ${Tasa_O_key} y ${Tasa_D_key}.` });
         }
 
         const T_O = parseFloat(T_O_str) || 0;
@@ -227,39 +289,4 @@ app.get('/convertir', async (req, res) => {
             return res.status(404).json({ error: "El valor de una de las tasas dinámicas es cero o inválido." });
         }
 
-        // 4. BUSCAR FACTOR DE GANANCIA (F) en la matriz fija
-        const claveMatrizDestino = `${D}_D`; // Fila
-        const claveMatrizOrigen = `${O}_O`; // Columna
-
-        const filaDestino = MATRIZ_CRUCE_FACTORES.find(row => row["+/-"] === claveMatrizDestino);
-        
-        if (!filaDestino || !filaDestino[claveMatrizOrigen]) {
-            return res.status(404).json({ error: `Factor de ganancia (matriz) no encontrado para el par ${O} -> ${D}.` });
-        }
-
-        const Factor_F = parseFactor(filaDestino[claveMatrizOrigen]);
-
-        // 5. CÁLCULO FINAL: Monto * ( (T_D / T_O) * F )
-        const montoConvertido = monto * ( (T_D / T_O) * Factor_F );
-
-        // 6. Devolver resultado JSON
-        res.json({
-            status: "success",
-            conversion_solicitada: `${monto} ${O} a ${D}`,
-            monto_convertido: parseFloat(montoConvertido.toFixed(4)),
-            detalle: { factor_ganancia: Factor_F }
-        });
-
-    } catch (error) {
-        console.error('Error en /convertir: ', error.message);
-        res.status(500).json({ error: 'Error interno del servidor al procesar la conversión.', detalle: error.message });
-    }
-});
-
-
-// --- INICIO DEL SERVIDOR (TU CÓDIGO ORIGINAL) ---
-app.listen(PORT, () => {
-    console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
-    console.log(`Acceso API de prueba: http://localhost:${PORT}/`);
-    console.log(`¡SERVICIO DE CONVERSIÓN ACTIVO! Ejemplo: http://localhost:${PORT}/convertir?cantidad=100&origen=USD&destino=COP`);
-});
+        // 4. BUSCAR FACTOR DE GANANCIA (F) en la matriz
