@@ -77,17 +77,96 @@ app.use((req, res, next) => {
     next();
 });
 
-// Ruta raíz de bienvenida (para evitar el error "Cannot GET /")
+// Ruta raíz que ahora devuelve HTML con enlaces directos
 app.get('/', (req, res) => {
-    res.json({
-        status: "API de NOCTUS en línea",
-        message: "Accede a los datos usando los siguientes endpoints (Enlaces Directos):",
-        endpoints: [
-            "/tasas",
-            "/matriz_cruce",
-            "/matriz_emojis"
-        ]
-    });
+    // Lista de endpoints y sus descripciones
+    const endpoints = [
+        { path: '/tasas', description: 'Tabla 1: Datos Dinámicos (Tasas de Monedas)' },
+        { path: '/matriz_cruce', description: 'Tabla 2: Matriz de Cruce Estática' },
+        { path: '/matriz_emojis', description: 'Tabla 3: Matriz de Emojis/Factores Estática' }
+    ];
+
+    const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>NOCTUS API - Endpoints</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #0d1117; /* Fondo oscuro */
+                    color: #c9d1d9; /* Texto claro */
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                    margin: 0;
+                }
+                .container {
+                    background-color: #161b22; /* Contenedor más claro */
+                    padding: 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+                    width: 90%;
+                    max-width: 600px;
+                }
+                h1 {
+                    color: #58a6ff; /* Azul brillante */
+                    border-bottom: 2px solid #30363d;
+                    padding-bottom: 10px;
+                    margin-top: 0;
+                }
+                .endpoint-list {
+                    list-style: none;
+                    padding: 0;
+                }
+                .endpoint-item {
+                    margin-bottom: 15px;
+                    background-color: #21262d; /* Fondo del item */
+                    padding: 15px;
+                    border-radius: 8px;
+                    transition: background-color 0.3s;
+                }
+                .endpoint-item:hover {
+                    background-color: #30363d;
+                }
+                .endpoint-item a {
+                    text-decoration: none;
+                    color: #58a6ff;
+                    font-weight: bold;
+                    display: block;
+                    font-size: 1.1em;
+                    margin-bottom: 5px;
+                }
+                .endpoint-item p {
+                    margin: 0;
+                    color: #8b949e; /* Gris suave para la descripción */
+                    font-size: 0.9em;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>API de NOCTUS en Línea</h1>
+                <p>El servicio de datos de Google Sheets está funcionando. Haz clic en un enlace para acceder a los datos JSON de la tabla correspondiente:</p>
+                <ul class="endpoint-list">
+                    ${endpoints.map(ep => `
+                        <li class="endpoint-item">
+                            <a href="${ep.path}">${window.location.host}${ep.path}</a>
+                            <p>${ep.description}</p>
+                        </li>
+                    `).join('')}
+                </ul>
+                <p style="text-align: center; font-size: 0.8em; color: #484f58;">Nota: Esta página es solo para referencia. Los datos son entregados en formato JSON.</p>
+            </div>
+        </body>
+        </html>
+    `;
+    // Enviamos el contenido como HTML
+    res.setHeader('Content-Type', 'text/html'); 
+    res.send(htmlContent);
 });
 
 // --- RUTAS DE LA API (Endpoints con Enlaces Directos) ---
@@ -140,5 +219,5 @@ app.get('/matriz_emojis', async (req, res) => {
 // --- INICIO DEL SERVIDOR ---
 app.listen(PORT, () => {
     console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
-    console.log(`Acceso API de prueba: http://localhost:${PORT}/tasas`);
+    console.log(`Acceso API de prueba: http://localhost:${PORT}/`);
 });
