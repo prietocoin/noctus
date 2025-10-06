@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 8080;
 const CREDENTIALS_PATH = '/workspace/credentials.json'; 
 const SPREADSHEET_ID = '19Lzcyy3YyeoGCffCjoDHK1tXgn_QkPmhGl7vbDHyrMU';
 const MAIN_SHEET_NAME = 'Datos_Para_La_App'; 
-const RANGO_TASAS = 'A1:AL999'; 
+const RANGO_TASAS = 'A1:AL999'; // Rango para las tasas dinámicas
 
 // --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
 
@@ -57,7 +57,6 @@ function transformToObjects(data) {
 
 // --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS ---
 
-// ¡MODIFICACIÓN CLAVE AQUÍ PARA EL FILTRO IDTAS!
 async function getSheetData(range) {
     const auth = new google.auth.GoogleAuth({
         keyFile: CREDENTIALS_PATH,
@@ -297,12 +296,17 @@ app.get('/convertir', async (req, res) => {
         // 5. CÁLCULO FINAL: Monto * ( (T_D / T_O) * F )
         const montoConvertido = monto * ( (T_D / T_O) * Factor_F );
 
-        // 6. Devolver resultado JSON
+        // 6. Devolver resultado JSON con IDTAS y FECHA (Timestamp)
         res.json({
             status: "success",
             conversion_solicitada: `${monto} ${O} a ${D}`,
             monto_convertido: parseFloat(montoConvertido.toFixed(4)),
-            detalle: { factor_ganancia: Factor_F }
+            detalle: {
+                factor_ganancia: Factor_F,
+                // DEVOLVEMOS IDTAS Y FECHA DE LA FILA MÁS RECIENTE
+                id_tasa_actual: latestRow.IDTAS,
+                timestamp_actual: latestRow.FECHA 
+            }
         });
 
     } catch (error) {
