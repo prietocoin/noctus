@@ -79,6 +79,9 @@ app.use((req, res, next) => {
 
 // Ruta raíz que ahora devuelve HTML con enlaces directos
 app.get('/', (req, res) => {
+    // 1. CORRECCIÓN: Usar req.headers.host (o req.hostname) en lugar de window.location.host
+    const hostUrl = req.headers.host; 
+    
     // Lista de endpoints y sus descripciones
     const endpoints = [
         { path: '/tasas', description: 'Tabla 1: Datos Dinámicos (Tasas de Monedas)' },
@@ -154,7 +157,7 @@ app.get('/', (req, res) => {
                 <ul class="endpoint-list">
                     ${endpoints.map(ep => `
                         <li class="endpoint-item">
-                            <a href="${ep.path}">${window.location.host}${ep.path}</a>
+                            <a href="${ep.path}">${hostUrl}${ep.path}</a>
                             <p>${ep.description}</p>
                         </li>
                     `).join('')}
