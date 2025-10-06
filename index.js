@@ -9,7 +9,7 @@ const SPREADSHEET_ID = '19Lzcyy3YyeoGCffCjoDHK1tXgn_QkPmhGl7vbDHyrMU';
 const MAIN_SHEET_NAME = 'Datos_Para_La_App'; 
 const RANGO_TASAS = 'A1:AL999'; // Rango para las tasas dinámicas
 
-// --- NUEVAS CONSTANTES Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
+// --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
 
 // Matriz de Factores de Ganancia Fija
 const MATRIZ_CRUCE_FACTORES = [
@@ -188,10 +188,23 @@ app.get('/', (req, res) => {
 
 // --- RUTAS DE LA API (Corregidas para coexistencia) ---
 
-// 1. Ruta de Datos Dinámicos (DEVUELVE EL ARRAY COMPLETO ORIGINAL)
+// 1. Ruta de Datos Dinámicos (APLICA FILTRO IDTAS para devolver solo la fila más reciente)
 app.get('/tasas', async (req, res) => {
     try {
-        let data = await getSheetData(RANGO_TASAS); 
+        let data = await getSheetData(RANGO_TASAS);
+
+        // LÓGICA FILTRO IDTAS RESTAURADA
+        if (Array.isArray(data) && data.length > 0) {
+            const latestRow = data.reduce((max, current) => {
+                const maxIdtasNum = parseFloat(max.IDTAS) || 0;
+                const currentIdtasNum = parseFloat(current.IDTAS) || 0;
+                return currentIdtasNum > maxIdtasNum ? current : max;
+            }, data[0]);
+            data = latestRow; // Devuelve solo el objeto más reciente
+        } else {
+             data = [];
+        }
+
         res.json(data);
     } catch (error) {
         console.error('Error en /tasas: ', error.message);
@@ -226,7 +239,7 @@ app.get('/matriz_emojis', async (req, res) => {
 });
 
 
-// 4. SERVICIO DE CONVERSIÓN CENTRALIZADO (Mantiene el filtro IDTAS aquí)
+// 4. SERVICIO DE CONVERSIÓN CENTRALIZADO (Mantiene el filtro IDTAS aquí también)
 app.get('/convertir', async (req, res) => {
     // 1. Obtener y validar parámetros
     const { cantidad, origen, destino } = req.query;
@@ -240,10 +253,9 @@ app.get('/convertir', async (req, res) => {
     }
 
     try {
-        // 2. OBTENER DATA COMPLETA Y FILTRAR POR IDTAS (Filtro seguro aquí)
+        // 2. OBTENER DATA COMPLETA Y FILTRAR POR IDTAS
         const allTasas = await getSheetData(RANGO_TASAS); 
         
-        // --- Aplicar Filtro IDTAS MÁS ALTO ---
         const latestRow = allTasas.reduce((max, current) => {
             const maxIdtasNum = parseFloat(max.IDTAS) || 0; 
             const currentIdtasNum = parseFloat(current.IDTAS) || 0;
