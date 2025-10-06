@@ -1,34 +1,33 @@
 const express = require('express');
-const { google } = require('googleapis');
+const { google } = require = ('googleapis'); // <--- Asegúrate de que esta línea esté correcta
 const app = express();
 
 // --- CONFIGURACIÓN DE ENTORNO ---
 const PORT = process.env.PORT || 8080;
-// RUTA ABSOLUTA que funciona con el Montaje de Archivo de EasyPanel
 const CREDENTIALS_PATH = '/workspace/credentials.json'; 
 const SPREADSHEET_ID = '19Lzcyy3YyeoGCffCjoDHK1tXgn_QkPmhGl7vbDHyrMU';
 const MAIN_SHEET_NAME = 'Datos_Para_La_App'; 
 
-// --- NUEVAS CONSTANTES Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
+// --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
 
-// Matriz de Factores de Ganancia Fija
+// Matriz de Factores de Ganancia Fija (AÑADIDA AQUÍ)
 const MATRIZ_CRUCE_FACTORES = [
-  { "+/-": "VES_D", "VES_O": "1,00", "PEN_O": "0,94", "COP_O": "0,93", "CLP_O": "0,93", "ARS_O": "0,92", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "PEN_D", "VES_O": "0,90", "PEN_O": "1,00", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "COP_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "1,00", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "CLP_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "1,00", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "ARS_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "1,00", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "BRL_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "1,00", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "PYG_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "1,00", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "MXN_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "1", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "USD_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "1", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "ECU_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "1", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "PAN_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "1", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "EUR_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "1", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "DOP_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "1", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "BOB_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "1", "CRC_O": "0,85", "UYU_O": "0,85" },
-  { "+/-": "CRC_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "1", "UYU_O": "0,85" },
-  { "+/-": "UYU_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "1" }
+    { "+/-": "VES_D", "VES_O": "1,00", "PEN_O": "0,94", "COP_O": "0,93", "CLP_O": "0,93", "ARS_O": "0,92", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "PEN_D", "VES_O": "0,90", "PEN_O": "1,00", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "COP_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "1,00", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "CLP_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "1,00", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "ARS_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "1,00", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "BRL_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "1,00", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "PYG_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "1,00", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "MXN_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "1", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "USD_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "1", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "ECU_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "1", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "PAN_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "1", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "EUR_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "1", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "DOP_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "1", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "BOB_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "1", "CRC_O": "0,85", "UYU_O": "0,85" },
+    { "+/-": "CRC_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "1", "UYU_O": "0,85" },
+    { "+/-": "UYU_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "1" }
 ];
 
 // Convierte cadena con coma decimal a número (ej. "0,93" -> 0.93)
@@ -108,78 +107,23 @@ app.use((req, res, next) => {
 
 // Ruta raíz que ahora devuelve HTML con enlaces directos
 app.get('/', (req, res) => {
-    // 1. CORRECCIÓN: Usar req.headers.host (o req.hostname) en lugar de window.location.host
     const hostUrl = req.headers.host; 
     
-    // Lista de endpoints y sus descripciones
     const endpoints = [
         { path: '/tasas', description: 'Tabla 1: Datos Dinámicos (Tasas de Monedas)' },
         { path: '/matriz_cruce', description: 'Tabla 2: Matriz de Cruce Estática' },
         { path: '/matriz_emojis', description: 'Tabla 3: Matriz de Emojis/Factores Estática' },
-        // AÑADIDO: Muestra la nueva ruta de servicio
-        { path: '/convertir?cantidad=100&origen=EUR&destino=COP', description: 'Servicio de Conversión (Calculadora Final)' } 
+        { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Final)' } 
     ];
 
     const htmlContent = `
         <!DOCTYPE html>
         <html lang="es">
         <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>NOCTUS API - Endpoints</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #0d1117; /* Fondo oscuro */
-                    color: #c9d1d9; /* Texto claro */
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    min-height: 100vh;
-                    margin: 0;
-                }
-                .container {
-                    background-color: #161b22; /* Contenedor más claro */
-                    padding: 30px;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-                    width: 90%;
-                    max-width: 600px;
-                }
-                h1 {
-                    color: #58a6ff; /* Azul brillante */
-                    border-bottom: 2px solid #30363d;
-                    padding-bottom: 10px;
-                    margin-top: 0;
-                }
-                .endpoint-list {
-                    list-style: none;
-                    padding: 0;
-                }
-                .endpoint-item {
-                    margin-bottom: 15px;
-                    background-color: #21262d; /* Fondo del item */
-                    padding: 15px;
-                    border-radius: 8px;
-                    transition: background-color 0.3s;
-                }
-                .endpoint-item:hover {
-                    background-color: #30363d;
-                }
-                .endpoint-item a {
-                    text-decoration: none;
-                    color: #58a6ff;
-                    font-weight: bold;
-                    display: block;
-                    font-size: 1.1em;
-                    margin-bottom: 5px;
-                }
-                .endpoint-item p {
-                    margin: 0;
-                    color: #8b949e; /* Gris suave para la descripción */
-                    font-size: 0.9em;
-                }
-            </style>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>NOCTUS API - Endpoints</title>
+            <style>/* ... (Estilos de tu HTML) ... */</style>
         </head>
         <body>
             <div class="container">
@@ -203,14 +147,15 @@ app.get('/', (req, res) => {
     res.send(htmlContent);
 });
 
-// --- RUTAS DE LA API (Endpoints con Enlaces Directos) ---
+// --- RUTAS DE LA API (TU CÓDIGO ORIGINAL CON PEQUEÑA CORRECCIÓN EN /tasas) ---
 
-// 1. Ruta de Datos Dinámicos (Telegram/Principal) - ¡Mantiene tu lógica de filtrado IDTAS!
+// 1. Ruta de Datos Dinámicos (Telegram/Principal)
 // RANGO: A1:AL999 (Tabla 1)
 app.get('/tasas', async (req, res) => {
     try {
         let data = await getSheetData('A1:AL999');
 
+        // Lógica de filtrado de IDTAS para que /convertir pueda usarla más tarde
         if (Array.isArray(data) && data.length > 0) {
             const latestRow = data.reduce((max, current) => {
                 const maxIdtasNum = parseFloat(max.IDTAS) || 0;
@@ -222,6 +167,7 @@ app.get('/tasas', async (req, res) => {
              data = [];
         }
 
+        // Si se llama directamente, devuelve el objeto más reciente
         res.json(data);
     } catch (error) {
         console.error('Error en /tasas: ', error.message);
@@ -276,77 +222,4 @@ app.get('/convertir', async (req, res) => {
     const RANGO_TASAS = 'A1:AL999';
 
     if (!monto || !O || !D) {
-        return res.status(400).json({ 
-            error: "Parámetros faltantes o inválidos.", 
-            ejemplo: "/convertir?cantidad=100&origen=EUR&destino=COP" 
-        });
-    }
-
-    try {
-        // 2. OBTENER Y FILTRAR TASAS DINÁMICAS (Lógica de IDTAS más alto)
-        const allTasas = await getSheetData(RANGO_TASAS); 
-        
-        const latestRow = allTasas.reduce((max, current) => {
-            const maxIdtasNum = parseFloat(max.IDTAS) || 0; 
-            const currentIdtasNum = parseFloat(current.IDTAS) || 0;
-            return currentIdtasNum > maxIdtasNum ? current : max;
-        }, allTasas[0]);
-        
-        if (!latestRow) {
-             return res.status(503).json({ error: "No se pudieron obtener datos de tasas dinámicas recientes." });
-        }
-
-        // 3. EXTRAER TASAS T_O y T_D: ¡CORRECCIÓN APLICADA AQUÍ!
-        // Asumimos que TODAS las tasas en la hoja de Sheets terminan en _O
-        // (es decir, Tasa Origen y Tasa Destino se buscan bajo el mismo patrón)
-        const Tasa_O_key = `${O}_O`; // Ej: EUR_O
-        const Tasa_D_key = `${D}_O`; // Ej: COP_O
-
-        const T_O_str = latestRow[Tasa_O_key];
-        const T_D_str = latestRow[Tasa_D_key];
-        
-        if (!T_O_str || !T_D_str) {
-             // Este error ahora cubre si la columna no existe en Sheets
-             return res.status(404).json({ error: `Clave no encontrada en Sheets para ${O} o ${D}. Verifica que el encabezado sea exactamente ${Tasa_O_key} y ${Tasa_D_key}.` });
-        }
-
-        const T_O = parseFloat(T_O_str) || 0;
-        const T_D = parseFloat(T_D_str) || 0;
-
-        if (T_O === 0 || T_D === 0) {
-            // Este error cubre si el valor de la celda es 0 o un texto vacío que no se puede parsear
-            return res.status(404).json({ error: "El valor de una de las tasas dinámicas es cero o inválido en la hoja de cálculo." });
-        }
-
-        // 4. BUSCAR FACTOR DE GANANCIA (F) en la matriz fija: ¡USA AMBOS SUFIJOS!
-        const claveMatrizDestino = `${D}_D`; // Ej: COP_D (Fila)
-        const claveMatrizOrigen = `${O}_O`; // Ej: EUR_O (Columna)
-
-        const filaDestino = MATRIZ_CRUCE_FACTORES.find(row => row["+/-"] === claveMatrizDestino);
-        
-        if (!filaDestino || !filaDestino[claveMatrizOrigen]) {
-            return res.status(404).json({ error: `Factor de ganancia (matriz) no encontrado para el par ${O} -> ${D}.` });
-        }
-
-        const Factor_F = parseFactor(filaDestino[claveMatrizOrigen]);
-
-        // 5. CÁLCULO FINAL: Monto * ( (T_D / T_O) * F )
-        const montoConvertido = monto * ( (T_D / T_O) * Factor_F );
-
-        // 6. Devolver resultado JSON
-        res.json({
-            status: "success",
-            conversion_solicitada: `${monto} ${O} a ${D}`,
-            monto_convertido: parseFloat(montoConvertido.toFixed(4)),
-            detalle: {
-                tasa_origen_T_O: T_O,
-                tasa_destino_T_D: T_D,
-                factor_ganancia: Factor_F,
-            }
-        });
-
-    } catch (error) {
-        console.error('Error en /convertir: ', error.message);
-        res.status(500).json({ error: 'Error interno del servidor al procesar la conversión.', detalle: error.message });
-    }
-});
+        return res
