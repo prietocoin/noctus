@@ -9,7 +9,36 @@ const CREDENTIALS_PATH = '/workspace/credentials.json'; 
 const SPREADSHEET_ID = '19Lzcyy3YyeoGCffCjoDHK1tXgn_QkPmhGl7vbDHyrMU';
 const MAIN_SHEET_NAME = 'Datos_Para_La_App'; 
 
-// --- FUNCIONES DE UTILIDAD ---
+// --- NUEVAS CONSTANTES Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
+
+// Matriz de Factores de Ganancia Fija
+const MATRIZ_CRUCE_FACTORES = [
+  { "+/-": "VES_D", "VES_O": "1,00", "PEN_O": "0,94", "COP_O": "0,93", "CLP_O": "0,93", "ARS_O": "0,92", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "PEN_D", "VES_O": "0,90", "PEN_O": "1,00", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "COP_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "1,00", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "CLP_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "1,00", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "ARS_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "1,00", "BRL_O": "0,90", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "BRL_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "1,00", "PYG_O": "0,90", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "PYG_D", "VES_O": "0,90", "PEN_O": "0,90", "COP_O": "0,90", "CLP_O": "0,90", "ARS_O": "0,90", "BRL_O": "0,90", "PYG_O": "1,00", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "MXN_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "1", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "USD_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "1", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "ECU_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "1", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "PAN_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "1", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "EUR_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "1", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "DOP_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "1", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "BOB_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "1", "CRC_O": "0,85", "UYU_O": "0,85" },
+  { "+/-": "CRC_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "1", "UYU_O": "0,85" },
+  { "+/-": "UYU_D", "VES_O": "0,85", "PEN_O": "0,85", "COP_O": "0,85", "CLP_O": "0,85", "ARS_O": "0,85", "BRL_O": "0,85", "PYG_O": "0,85", "MXN_O": "0,85", "USD_O": "0,85", "ECU_O": "0,85", "PAN_O": "0,85", "EUR_O": "0,85", "DOP_O": "0,85", "BOB_O": "0,85", "CRC_O": "0,85", "UYU_O": "1" }
+];
+
+// Convierte cadena con coma decimal a número (ej. "0,93" -> 0.93)
+function parseFactor(factorString) {
+    if (typeof factorString !== 'string') return 1.0;
+    return parseFloat(factorString.replace(',', '.')) || 1.0; 
+}
+
+
+// --- FUNCIONES DE UTILIDAD (TU CÓDIGO ORIGINAL) ---
 
 /**
  * Convierte un array de arrays (datos de Sheets) en un array de objetos
@@ -36,7 +65,7 @@ function transformToObjects(data) {
     }).filter(obj => Object.values(obj).some(val => val !== '')); 
 }
 
-// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS ---
+// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS (TU CÓDIGO ORIGINAL) ---
 
 /**
  * Obtiene datos de un rango específico en la hoja principal y los transforma.
@@ -69,7 +98,7 @@ async function getSheetData(range) {
     }
 }
 
-// --- MIDDLEWARE Y RUTA RAÍZ ---
+// --- MIDDLEWARE Y RUTA RAÍZ (TU CÓDIGO ORIGINAL) ---
 app.use((req, res, next) => {
     // Permite CORS para que el frontend pueda consumir la API
     res.setHeader('Access-Control-Allow-Origin', '*'); 
@@ -86,7 +115,9 @@ app.get('/', (req, res) => {
     const endpoints = [
         { path: '/tasas', description: 'Tabla 1: Datos Dinámicos (Tasas de Monedas)' },
         { path: '/matriz_cruce', description: 'Tabla 2: Matriz de Cruce Estática' },
-        { path: '/matriz_emojis', description: 'Tabla 3: Matriz de Emojis/Factores Estática' }
+        { path: '/matriz_emojis', description: 'Tabla 3: Matriz de Emojis/Factores Estática' },
+        // AÑADIDO: Muestra la nueva ruta de servicio
+        { path: '/convertir?cantidad=100&origen=EUR&destino=COP', description: 'Servicio de Conversión (Calculadora Final)' } 
     ];
 
     const htmlContent = `
@@ -157,7 +188,7 @@ app.get('/', (req, res) => {
                 <ul class="endpoint-list">
                     ${endpoints.map(ep => `
                         <li class="endpoint-item">
-                            <a href="${ep.path}">${hostUrl}${ep.path}</a>
+                            <a href="${ep.path.includes('?') ? ep.path : hostUrl + ep.path}">${ep.path}</a>
                             <p>${ep.description}</p>
                         </li>
                     `).join('')}
@@ -174,42 +205,33 @@ app.get('/', (req, res) => {
 
 // --- RUTAS DE LA API (Endpoints con Enlaces Directos) ---
 
-// 1. Ruta de Datos Dinámicos (Telegram/Principal)
+// 1. Ruta de Datos Dinámicos (Telegram/Principal) - ¡Mantiene tu lógica de filtrado IDTAS!
 // RANGO: A1:AL999 (Tabla 1)
 app.get('/tasas', async (req, res) => {
-    try {
-        let data = await getSheetData('A1:AL999');
+    try {
+        let data = await getSheetData('A1:AL999');
 
-        // === INICIO DE LA MODIFICACIÓN: FILTRADO POR IDTAS MÁS ALTO ===
-        if (Array.isArray(data) && data.length > 0) {
-            const latestRow = data.reduce((max, current) => {
-                // Usamos replace(',', '.') para asegurar que el parsing a número funcione
-                // incluso si Google Sheets devuelve el número con coma decimal.
-                const maxIdtas = parseFloat(max.IDTAS.replace(',', '.')) || 0;
-                const currentIdtas = parseFloat(current.IDTAS.replace(',', '.')) || 0;
+        if (Array.isArray(data) && data.length > 0) {
+            const latestRow = data.reduce((max, current) => {
+                const maxIdtasNum = parseFloat(max.IDTAS) || 0;
+                const currentIdtasNum = parseFloat(current.IDTAS) || 0;
+                return currentIdtasNum > maxIdtasNum ? current : max;
+            }, data[0]);
+            data = latestRow;
+        } else {
+             data = [];
+        }
 
-                // Si el IDTAS actual es mayor, se convierte en la fila más reciente (max)
-                return currentIdtas > maxIdtas ? current : max;
-            }, data[0]); // Inicializamos con la primera fila como punto de partida
-
-            // Sobreescribimos 'data' con solo el objeto de la última fila.
-            data = latestRow;
-            
-        } else {
-            // Si no hay datos, aseguramos que la respuesta sea un array vacío (o un objeto vacío si lo prefieres)
-            data = [];
-        }
-        // === FIN DE LA MODIFICACIÓN: FILTRADO POR IDTAS MÁS ALTO ===
-
-        res.json(data);
-    } catch (error) {
-        console.error('Error en /tasas: ', error.message);
-        res.status(500).json({ 
-            error: 'Error al obtener datos dinámicos (Tasas)', 
-            detalle: error.message 
-        });
-    }
+        res.json(data);
+    } catch (error) {
+        console.error('Error en /tasas: ', error.message);
+        res.status(500).json({ 
+            error: 'Error al obtener datos dinámicos (Tasas)', 
+            detalle: error.message 
+        });
+    }
 });
+
 
 // 2. Ruta de Matriz de Cruce Estática (Tabla 2)
 // RANGO: AN1:BD17
@@ -241,8 +263,94 @@ app.get('/matriz_emojis', async (req, res) => {
     }
 });
 
-// --- INICIO DEL SERVIDOR ---
+
+// 4. NUEVO SERVICIO: Ruta centralizada para realizar el cálculo completo de la conversión
+// Uso: GET /convertir?cantidad=100&origen=EUR&destino=COP
+app.get('/convertir', async (req, res) => {
+    // 1. Obtener y validar parámetros
+    const { cantidad, origen, destino } = req.query;
+
+    const monto = parseFloat(cantidad);
+    const O = origen ? origen.toUpperCase() : null;
+    const D = destino ? destino.toUpperCase() : null;
+    const RANGO_TASAS = 'A1:AL999';
+
+    if (!monto || !O || !D) {
+        return res.status(400).json({ 
+            error: "Parámetros faltantes o inválidos.", 
+            ejemplo: "/convertir?cantidad=100&origen=EUR&destino=COP" 
+        });
+    }
+
+    try {
+        // 2. OBTENER Y FILTRAR TASAS DINÁMICAS (Reutilizando la lógica de /tasas)
+        const allTasas = await getSheetData(RANGO_TASAS); 
+        
+        const latestRow = allTasas.reduce((max, current) => {
+            const maxIdtasNum = parseFloat(max.IDTAS) || 0; 
+            const currentIdtasNum = parseFloat(current.IDTAS) || 0;
+            return currentIdtasNum > maxIdtasNum ? current : max;
+        }, allTasas[0]);
+        
+        if (!latestRow) {
+             return res.status(503).json({ error: "No se pudieron obtener datos de tasas dinámicas recientes." });
+        }
+
+        // 3. EXTRAER TASAS T_O y T_D
+        const Tasa_O_key = `${O}_O`;
+        const Tasa_D_key = `${D}_O`;
+
+        const T_O_str = latestRow[Tasa_O_key];
+        const T_D_str = latestRow[Tasa_D_key];
+        
+        if (!T_O_str || !T_D_str) {
+             return res.status(404).json({ error: `Tasa dinámica no encontrada para ${O} o ${D} en la última fila.` });
+        }
+
+        const T_O = parseFloat(T_O_str) || 0;
+        const T_D = parseFloat(T_D_str) || 0;
+
+        if (T_O === 0 || T_D === 0) {
+            return res.status(404).json({ error: "Una de las tasas dinámicas es cero." });
+        }
+
+        // 4. BUSCAR FACTOR DE GANANCIA (F) en la matriz fija
+        const claveMatrizDestino = `${D}_D`;
+        const claveMatrizOrigen = `${O}_O`;
+
+        const filaDestino = MATRIZ_CRUCE_FACTORES.find(row => row["+/-"] === claveMatrizDestino);
+        
+        if (!filaDestino || !filaDestino[claveMatrizOrigen]) {
+            return res.status(404).json({ error: `Factor de ganancia (matriz) no encontrado para el par ${O} -> ${D}.` });
+        }
+
+        const Factor_F = parseFactor(filaDestino[claveMatrizOrigen]);
+
+        // 5. CÁLCULO FINAL: Monto * ( (T_D / T_O) * F )
+        const montoConvertido = monto * ( (T_D / T_O) * Factor_F );
+
+        // 6. Devolver resultado JSON
+        res.json({
+            status: "success",
+            conversion_solicitada: `${monto} ${O} a ${D}`,
+            monto_convertido: parseFloat(montoConvertido.toFixed(4)),
+            detalle: {
+                tasa_origen_T_O: T_O,
+                tasa_destino_T_D: T_D,
+                factor_ganancia: Factor_F,
+            }
+        });
+
+    } catch (error) {
+        console.error('Error en /convertir: ', error.message);
+        res.status(500).json({ error: 'Error interno del servidor al procesar la conversión.', detalle: error.message });
+    }
+});
+
+
+// --- INICIO DEL SERVIDOR (TU CÓDIGO ORIGINAL) ---
 app.listen(PORT, () => {
     console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
     console.log(`Acceso API de prueba: http://localhost:${PORT}/`);
+    console.log(`¡NUEVO SERVICIO LISTO! Ejemplo: http://localhost:${PORT}/convertir?cantidad=100&origen=USD&destino=COP`);
 });
