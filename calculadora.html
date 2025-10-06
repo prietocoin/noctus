@@ -10,7 +10,7 @@
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
-            padding: 30px 10px 10px 10px; /* <--- AJUSTE CLAVE: Añadido padding superior (30px) */
+            padding: 60px 10px 10px 10px; /* <--- AJUSTE CLAVE: Margin superior aumentado a 60px */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -103,6 +103,7 @@
         <img src="https://raw.githubusercontent.com/prietocoin/noctus/main/buho.jpeg" alt="Logo Búho FUNDABLOCK"> 
         <div class="brand-name">FUNDABLOCK</div>
         <div class="tagline">NOCTUS</div>
+        <div class="version-info">Versión del Nuevo Sistema</div>
     </div>
 
     <div class="container">
@@ -126,7 +127,16 @@
     <script>
         const API_BASE_URL = 'https://noctus.jairokov.com'; 
 
-        // 🟢 Mapeo de códigos ISO a nombres de país/moneda (Incluyendo USD)
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const resultDiv = document.getElementById('result');
+        const timestampInfoDiv = document.getElementById('timestampInfo');
+
+        const amountInput = document.getElementById('amount');
+        const originSelect = document.getElementById('originCurrency');
+        const destinationSelect = document.getElementById('destinationCurrency');
+
+        // Mapeo de códigos ISO a nombres de país/moneda
         const CURRENCY_NAMES = {
             'USD': 'Dólar Estadounidense (USD)',
             'EUR': 'Euro (EUR)',
@@ -143,15 +153,6 @@
             'CRC': 'Colón Costarricense (CRC)',
             'UYU': 'Peso Uruguayo (UYU)',
         };
-
-        const loadingDiv = document.getElementById('loading');
-        const errorDiv = document.getElementById('error');
-        const resultDiv = document.getElementById('result');
-        const timestampInfoDiv = document.getElementById('timestampInfo');
-
-        const amountInput = document.getElementById('amount');
-        const originSelect = document.getElementById('originCurrency');
-        const destinationSelect = document.getElementById('destinationCurrency');
 
         // Formateador para números
         const formatter = new Intl.NumberFormat('es-ES', {
@@ -193,7 +194,6 @@
                 const option = document.createElement('option');
                 option.value = currency;
                 
-                // Usar el mapeo: si existe, muestra el nombre completo; si no, solo el ISO.
                 const displayName = CURRENCY_NAMES[currency] || currency;
                 option.textContent = displayName;
                 
@@ -293,4 +293,3 @@
     </script>
 </body>
 </html>
-
