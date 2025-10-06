@@ -1,5 +1,4 @@
 const express = require('express');
-// LÍNEA CRÍTICA CORREGIDA: Uso correcto del require
 const { google } = require('googleapis'); 
 const app = express();
 
@@ -89,10 +88,9 @@ app.use((req, res, next) => {
 
 // Ruta raíz que ahora devuelve HTML con enlaces directos
 app.get('/', (req, res) => {
-    // CORRECCIÓN: Obtenemos el protocolo para construir URL absolutas perfectas
-    const protocol = req.protocol || (req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http');
+    // CORRECCIÓN: Usamos un prefijo de ruta absoluta ('/') en lugar del hostUrl completo
+    // para evitar el error de ruta doble.
     const hostUrl = req.headers.host; 
-    const fullHostUrl = `${protocol}://${hostUrl}`;
 
     const endpoints = [
         { path: '/tasas', description: 'Tabla 1: Datos Dinámicos (Tasas de Monedas)' },
@@ -155,7 +153,7 @@ app.get('/', (req, res) => {
                     display: block;
                     font-size: 1.1em;
                     margin-bottom: 5px;
-                    word-wrap: break-word; /* Para URLs largas */
+                    word-wrap: break-word; 
                 }
                 .endpoint-item p {
                     margin: 0;
@@ -170,12 +168,11 @@ app.get('/', (req, res) => {
                 <p>El servicio de datos de Google Sheets está funcionando. Haz clic en un enlace para acceder a los datos JSON de la tabla correspondiente:</p>
                 <ul class="endpoint-list">
                     ${endpoints.map(ep => {
-                        // CORRECCIÓN CLAVE: Usamos URL absolutas para el texto y la URL.
                         const linkPath = ep.path.startsWith('/') ? ep.path : '/' + ep.path;
-                        const fullLinkUrl = fullHostUrl + linkPath;
+                        const fullLinkDisplay = `${hostUrl}${linkPath}`; // Texto a mostrar
                         return `
                         <li class="endpoint-item">
-                            <a href="${linkPath}">${fullLinkUrl}</a>
+                            <a href="${linkPath}">${fullLinkDisplay}</a>
                             <p>${ep.description}</p>
                         </li>
                         `;
@@ -279,7 +276,7 @@ app.get('/convertir', async (req, res) => {
         const T_D_str = latestRow[Tasa_D_key];
         
         if (!T_O_str || !T_D_str) {
-             return res.status(404).json({ error: `Clave no encontrada en Sheets para ${O} o ${D}. Verifica que el encabezado sea exactamente ${Tasa_O_key} y ${Tasa_D_key}.` });
+             return res.status(404).json({ error: `Clave no encontrada en Sheets para ${O} o ${D}.` });
         }
 
         const T_O = parseFloat(T_O_str) || 0;
@@ -289,4 +286,8 @@ app.get('/convertir', async (req, res) => {
             return res.status(404).json({ error: "El valor de una de las tasas dinámicas es cero o inválido." });
         }
 
-        // 4. BUSCAR FACTOR DE GANANCIA (F) en la matriz
+        // 4. BUSCAR FACTOR DE GANANCIA (F) en la matriz fija
+        const claveMatrizDestino = `${D}_D`; // Fila
+        const claveMatrizOrigen = `${O}_O`; // Columna
+
+        const filaDestino = MATRIZ_CRUCE_FACTORES.find(row => row["+/-"] === claveMatrizDest
