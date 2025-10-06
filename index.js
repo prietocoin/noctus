@@ -1,7 +1,7 @@
 const express = require('express');
 const { google } = require('googleapis');
 const app = express();
-const port = 8080;
+const port = 80;
 
 async function getSheetData() {
   const auth = new google.auth.GoogleAuth({
@@ -41,3 +41,4 @@ app.listen(port, () => {
   console.log(`Servidor de NOCTUS API escuchando en http://localhost:${port}`);
 
 });
+
