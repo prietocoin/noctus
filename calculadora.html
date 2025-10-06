@@ -10,15 +10,16 @@
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
-            padding: 60px 10px 10px 10px; /* <--- AJUSTE CLAVE: Margin superior aumentado a 60px */
+            padding: 10px; /* Solo padding horizontal */
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
         }
-        /* ENCABEZADO Y MARCA */
+        /* ENCABEZADO Y MARCA - MARGEN CORREGIDO PARA EL MÓVIL */
         .header-branding {
             text-align: center;
+            margin-top: 30px; /* <--- MARGEN CLAVE PARA EL MÓVIL (Aumentar si es necesario) */
             margin-bottom: 10px; 
         }
         .header-branding img {
@@ -103,8 +104,7 @@
         <img src="https://raw.githubusercontent.com/prietocoin/noctus/main/buho.jpeg" alt="Logo Búho FUNDABLOCK"> 
         <div class="brand-name">FUNDABLOCK</div>
         <div class="tagline">NOCTUS</div>
-        <div class="version-info">Versión del Nuevo Sistema</div>
-    </div>
+        </div>
 
     <div class="container">
         <h1>Calculadora de Divisas</h1>
@@ -127,16 +127,7 @@
     <script>
         const API_BASE_URL = 'https://noctus.jairokov.com'; 
 
-        const loadingDiv = document.getElementById('loading');
-        const errorDiv = document.getElementById('error');
-        const resultDiv = document.getElementById('result');
-        const timestampInfoDiv = document.getElementById('timestampInfo');
-
-        const amountInput = document.getElementById('amount');
-        const originSelect = document.getElementById('originCurrency');
-        const destinationSelect = document.getElementById('destinationCurrency');
-
-        // Mapeo de códigos ISO a nombres de país/moneda
+        // Mapeo de códigos ISO a nombres de país/moneda (ACTUALIZADO)
         const CURRENCY_NAMES = {
             'USD': 'Dólar Estadounidense (USD)',
             'EUR': 'Euro (EUR)',
@@ -152,7 +143,20 @@
             'BOB': 'Boliviano (BOB)',
             'CRC': 'Colón Costarricense (CRC)',
             'UYU': 'Peso Uruguayo (UYU)',
+            // 🟢 NUEVAS DEFINICIONES SOLICITADAS
+            'ECU': 'Dólar Ecuatoriano (ECU)', // Nombre para ECU
+            'PAN': 'Dólar Panameño (PAN)', // Nombre para PAN
+            'CAD': 'Dólar Canadiense (CAD)', // Nombre para CAD
         };
+
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const resultDiv = document.getElementById('result');
+        const timestampInfoDiv = document.getElementById('timestampInfo');
+
+        const amountInput = document.getElementById('amount');
+        const originSelect = document.getElementById('originCurrency');
+        const destinationSelect = document.getElementById('destinationCurrency');
 
         // Formateador para números
         const formatter = new Intl.NumberFormat('es-ES', {
@@ -191,6 +195,9 @@
         function populateDropdown(selectElement, currencies) {
             selectElement.innerHTML = ''; 
             currencies.forEach(currency => {
+                // IGNORAR/ELIMINAR PYUSD (si está en la API)
+                if (currency === 'PYUSD') return;
+                
                 const option = document.createElement('option');
                 option.value = currency;
                 
@@ -204,7 +211,6 @@
         async function loadCurrencies() {
             showLoading();
             try {
-                // Fetch de la API de tasas para obtener la última fila
                 const response = await fetch(`${API_BASE_URL}/tasas`);
                 const dataArray = await response.json(); 
 
@@ -214,7 +220,7 @@
                 
                 const latestRow = dataArray[0];
 
-                // Extraer solo los códigos de divisa (eliminando el sufijo _O)
+                // Extraer solo los códigos de divisa (filtrando por _O)
                 const currencies = Object.keys(latestRow)
                                          .filter(key => key.endsWith('_O'))
                                          .map(key => key.slice(0, -2));
@@ -231,7 +237,7 @@
                 originSelect.value = 'USD'; 
                 destinationSelect.value = 'COP'; 
 
-                await convertCurrency(); // Ejecuta el primer cálculo exitoso
+                await convertCurrency(); 
 
             } catch (error) {
                 console.error("Error al cargar divisas:", error);
