@@ -4,7 +4,8 @@ const app = express();
 
 // --- CONFIGURACIÓN DE ENTORNO ---
 const PORT = process.env.PORT || 8080;
-const CREDENTIALS_PATH = '/workspace/credentials.json';
+// Ruta absoluta donde EasyPanel monta el archivo creado (Montaje de archivo)
+const CREDENTIALS_PATH = '/workspace/credentials.json'; 
 const SPREADSHEET_ID = '19Lzcyy3YyeoGCffCjoDHK1tXgn_QkPmhGl7vbDHyrMU';
 const MAIN_SHEET_NAME = 'Datos_Para_La_App'; // Nombre único de la hoja
 
@@ -19,30 +20,31 @@ const MAIN_SHEET_NAME = 'Datos_Para_La_App'; // Nombre único de la hoja
 function transformToObjects(data) {
     if (!data || data.length === 0) return [];
 
-    const headers = data[0];
+    // Usamos la primera fila como encabezados (ej: "FECHA", "COP+", etc.)
+    const headers = data[0].map(h => h.trim());
     const rows = data.slice(1);
 
     return rows.map(row => {
         const obj = {};
         headers.forEach((header, index) => {
-            // Usa el nombre del encabezado como clave y el valor de la fila
-            const key = header ? header.trim() : `Columna${index}`;
-            // Evita asignar valores nulos
+            const key = header ? header : `Columna${index}`;
+            // Asigna el valor o cadena vacía si es nulo
             obj[key] = row[index] || ''; 
         });
+        // Filtra objetos que son completamente vacíos (si Sheets devuelve filas en blanco)
         return obj;
-    }).filter(obj => Object.values(obj).some(val => val !== '')); // Elimina filas completamente vacías
+    }).filter(obj => Object.values(obj).some(val => val !== '')); 
 }
 
 // --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS ---
 
 /**
  * Obtiene datos de un rango específico en la hoja principal y los transforma.
- * @param {string} range Rango de celdas (p. ej., 'A1:CA500')
+ * @param {string} range Rango de celdas (ej. 'A1:AL999')
  * @returns {Promise<Array<object>>} Datos de la hoja transformados en objetos.
  */
 async function getSheetData(range) {
-    // Autenticación con el archivo físico (Montaje de Archivo)
+    // Autenticación usando la ruta del archivo que EasyPanel crea
     const auth = new google.auth.GoogleAuth({
         keyFile: CREDENTIALS_PATH,
         scopes: 'https://www.googleapis.com/auth/spreadsheets.readonly',
@@ -67,14 +69,28 @@ async function getSheetData(range) {
     }
 }
 
-// --- MIDDLEWARE PARA CABECERAS ---
+// --- MIDDLEWARE Y RUTA RAÍZ ---
 app.use((req, res, next) => {
+    // Permite CORS para que el frontend pueda consumir la API
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Content-Type', 'application/json');
     next();
 });
 
-// --- RUTAS DE LA API ---
+// Ruta raíz de bienvenida (para evitar el error "Cannot GET /")
+app.get('/', (req, res) => {
+    res.json({
+        status: "API de NOCTUS en línea",
+        message: "Accede a los datos usando los siguientes endpoints:",
+        endpoints: [
+            "/api/tasas",
+            "/api/matriz_cruce",
+            "/api/matriz_emojis"
+        ]
+    });
+});
+
+// --- RUTAS DE LA API (Endpoints) ---
 
 // 1. Ruta de Datos Dinámicos (Telegram/Principal)
 // RANGO: A1:AL999 (Tabla 1)
@@ -124,5 +140,5 @@ app.get('/api/matriz_emojis', async (req, res) => {
 // --- INICIO DEL SERVIDOR ---
 app.listen(PORT, () => {
     console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
-    console.log('Rutas disponibles: /api/tasas, /api/matriz_cruce, /api/matriz_emojis');
+    console.log(`Acceso API: http://localhost:${PORT}/api/tasas`);
 });
