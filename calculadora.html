@@ -5,92 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculadora de Divisas NOCTUS</title>
     <style>
+        /* ESTILOS GLOBALES */
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
         }
+        /* ENCABEZADO Y MARCA */
         .header-branding {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 10px; 
         }
         .header-branding img {
-            max-width: 80px; 
+            max-width: 65px; 
             height: auto;
-            margin-bottom: 10px;
-            border-radius: 50%; /* Opcional: para que se vea bien */
+            margin-bottom: 5px; 
+            border-radius: 50%;
         }
         .header-branding .brand-name {
-            font-size: 2.2em; 
+            font-size: 1.7em; 
             font-weight: bold;
             color: #333;
-            margin-bottom: 5px;
+            margin-bottom: 2px; 
         }
         .header-branding .tagline {
-            font-size: 1.2em; 
+            font-size: 1em; 
             color: #555;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
         }
         .header-branding .version-info {
-            font-size: 0.9em;
+            font-size: 0.8em; 
             color: #777;
         }
+        /* CONTENEDOR PRINCIPAL - ALTURA Y ANCHO */
         .container {
             background-color: #fff;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 400px;
+            max-width: 350px; 
             box-sizing: border-box;
         }
         h1 {
             text-align: center;
             color: #333;
             margin-top: 0;
+            font-size: 1.4em; 
+            margin-bottom: 10px;
         }
+        /* CAMPOS DE ENTRADA */
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 3px; 
             color: #555;
+            font-size: 0.85em;
         }
         input[type="number"], select {
-            width: calc(100% - 22px);
-            padding: 10px;
-            margin-bottom: 15px;
+            width: calc(100% - 20px);
+            padding: 7px; 
+            margin-bottom: 10px; 
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        /* RESULTADO E INFO */
         .result {
-            margin-top: 20px;
-            padding: 15px;
+            margin-top: 10px; 
+            padding: 10px; 
             background-color: #e9ecef;
             border-radius: 4px;
             text-align: center;
-            font-size: 1.2em;
+            font-size: 1em;
             color: #333;
         }
-        .loading {
-            text-align: center;
-            margin-top: 10px;
-            color: #007bff;
-            display: none; /* Inicialmente oculto */
-        }
+        .loading { display: none; }
         .error {
             text-align: center;
-            margin-top: 10px;
+            margin-top: 5px;
             color: #dc3545;
         }
         .timestamp-info {
-            font-size: 0.8em;
+            font-size: 0.7em; 
             color: #777;
-            text-align: right;
-            margin-top: 10px;
+            text-align: center;
+            margin-top: 5px;
+            line-height: 1.2;
         }
     </style>
 </head>
@@ -99,7 +103,6 @@
         <img src="https://raw.githubusercontent.com/prietocoin/noctus/main/buho.jpeg" alt="Logo Búho FUNDABLOCK"> 
         <div class="brand-name">FUNDABLOCK</div>
         <div class="tagline">NOCTUS</div>
-        <div class="version-info">Versión del Nuevo Sistema</div>
     </div>
 
     <div class="container">
@@ -109,12 +112,10 @@
         <input type="number" id="amount" value="100" oninput="convertCurrency()">
 
         <label for="originCurrency">De:</label>
-        <select id="originCurrency" onchange="convertCurrency()">
-            </select>
+        <select id="originCurrency" onchange="convertCurrency()"></select>
 
         <label for="destinationCurrency">A:</label>
-        <select id="destinationCurrency" onchange="convertCurrency()">
-            </select>
+        <select id="destinationCurrency" onchange="convertCurrency()"></select>
 
         <div class="result" id="result">Esperando datos...</div>
         <div class="error" id="error"></div>
@@ -124,6 +125,24 @@
 
     <script>
         const API_BASE_URL = 'https://noctus.jairokov.com'; 
+
+        // 🟢 Mapeo de códigos ISO a nombres de país/moneda (Incluyendo USD)
+        const CURRENCY_NAMES = {
+            'USD': 'Dólar Estadounidense (USD)',
+            'EUR': 'Euro (EUR)',
+            'VES': 'Bolívar Soberano (VES)',
+            'COP': 'Peso Colombiano (COP)',
+            'PEN': 'Sol Peruano (PEN)',
+            'CLP': 'Peso Chileno (CLP)',
+            'ARS': 'Peso Argentino (ARS)',
+            'BRL': 'Real Brasileño (BRL)',
+            'PYG': 'Guaraní Paraguayo (PYG)',
+            'MXN': 'Peso Mexicano (MXN)',
+            'DOP': 'Peso Dominicano (DOP)',
+            'BOB': 'Boliviano (BOB)',
+            'CRC': 'Colón Costarricense (CRC)',
+            'UYU': 'Peso Uruguayo (UYU)',
+        };
 
         const loadingDiv = document.getElementById('loading');
         const errorDiv = document.getElementById('error');
@@ -173,18 +192,21 @@
             currencies.forEach(currency => {
                 const option = document.createElement('option');
                 option.value = currency;
-                option.textContent = currency;
+                
+                // Usar el mapeo: si existe, muestra el nombre completo; si no, solo el ISO.
+                const displayName = CURRENCY_NAMES[currency] || currency;
+                option.textContent = displayName;
+                
                 selectElement.appendChild(option);
             });
         }
 
-        // FUNCIÓN PRINCIPAL DE CARGA DE DIVISAS (AHORA SIN RETRASO)
         async function loadCurrencies() {
             showLoading();
             try {
                 // Fetch de la API de tasas para obtener la última fila
                 const response = await fetch(`${API_BASE_URL}/tasas`);
-                const dataArray = await response.json(); // Se espera [latestRow]
+                const dataArray = await response.json(); 
 
                 if (!Array.isArray(dataArray) || dataArray.length === 0) {
                     throw new Error("API de tasas devolvió data no válida.");
@@ -205,7 +227,7 @@
                 populateDropdown(originSelect, currencies);
                 populateDropdown(destinationSelect, currencies);
 
-                // Establecer valores predeterminados (para que inicie con un cálculo válido)
+                // Establecer valores predeterminados
                 originSelect.value = 'USD'; 
                 destinationSelect.value = 'COP'; 
 
@@ -240,13 +262,15 @@
                 if (data.status === "success") {
                     const montoFormateado = formatter.format(data.monto_convertido);
                     
+                    const destinationName = CURRENCY_NAMES[destination] || destination;
+                    
                     // Mostrar código de divisa junto al monto
-                    resultDiv.innerHTML = `<strong>${destination} ${montoFormateado}</strong>`;
+                    resultDiv.innerHTML = `<strong>${destinationName}: ${montoFormateado}</strong>`;
                     
                     // Mostrar IDTAS y Fecha
                     const fechaFormateada = formatTimestamp(data.detalle.timestamp_actual);
                     timestampInfoDiv.innerHTML = `
-                        ID Tasa: <b>${data.detalle.id_tasa_actual}</b><br>
+                        ID Tasa: <b>${data.detalle.id_tasa_actual}</b> | 
                         Última Actualización: ${fechaFormateada}
                     `;
                     errorDiv.textContent = '';
@@ -265,12 +289,7 @@
             }
         }
 
-        // Llamar a la función al cargar la página
         document.addEventListener('DOMContentLoaded', loadCurrencies);
-
-        // Asociar la conversión a los eventos change de los dropdowns
-        originSelect.onchange = convertCurrency;
-        destinationSelect.onchange = convertCurrency;
     </script>
 </body>
 </html>
