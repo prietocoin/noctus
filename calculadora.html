@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Divisas NOCTUS API</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .converter-card {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            color: #1abc9c;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1em;
+            appearance: none; /* Quitar estilo nativo en selects */
+        }
+        #resultado {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #e8f8f5;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #1abc9c;
+            min-height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading {
+            color: #555;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="converter-card">
+        <h1>Calculadora de Divisas</h1>
+
+        <div class="input-group">
+            <label for="cantidad">Cantidad a Convertir</label>
+            <input type="number" id="cantidad" value="100" min="1" step="any" oninput="convertir()">
+        </div>
+
+        <div class="input-group">
+            <label for="origen">De:</label>
+            <select id="origen" onchange="convertir()">
+                <option value="USD">USD - Dólar Estadounidense</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="COP">COP - Peso Colombiano</option>
+                <option value="VES">VES - Bolívar Soberano</option>
+                <option value="MXN">MXN - Peso Mexicano</option>
+                <option value="ARS">ARS - Peso Argentino</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="destino">A:</label>
+            <select id="destino" onchange="convertir()">
+                <option value="COP">COP - Peso Colombiano</option>
+                <option value="USD">USD - Dólar Estadounidense</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="VES">VES - Bolívar Soberano</option>
+                <option value="MXN">MXN - Peso Mexicano</option>
+                <option value="ARS">ARS - Peso Argentino</option>
+            </select>
+        </div>
+
+        <div id="resultado">
+            Esperando datos...
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = "https://noctus.jairokov.com"; // ¡Tu API!
+        
+        // Formato de moneda para mostrar el resultado
+        const formatter = new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP', // Se actualizará al destino
+            minimumFractionDigits: 2
+        });
+
+        async function convertir() {
+            const cantidad = document.getElementById('cantidad').value;
+            const origen = document.getElementById('origen').value;
+            const destino = document.getElementById('destino').value;
+            const resultadoDiv = document.getElementById('resultado');
+
+            if (!cantidad || cantidad <= 0) {
+                resultadoDiv.textContent = "Ingrese una cantidad válida.";
+                return;
+            }
+
+            resultadoDiv.innerHTML = '<span class="loading">Calculando...</span>';
+
+            // 1. Construir la URL del endpoint /convertir
+            const url = `${API_BASE_URL}/convertir?cantidad=${cantidad}&origen=${origen}&destino=${destino}`;
+
+            try {
+                // 2. Llamar a la API
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // 3. Procesar y mostrar el resultado
+                if (data.status === "success") {
+                    // Actualizar el formateador para la moneda de destino (solo como ejemplo visual)
+                    formatter.currency = destino; 
+
+                    // Formatear el monto y mostrarlo
+                    const montoFormateado = formatter.format(data.monto_convertido);
+                    resultadoDiv.innerHTML = `${montoFormateado} (${destino})`;
+                } else {
+                    resultadoDiv.textContent = `Error: ${data.error}`;
+                    resultadoDiv.style.color = '#e74c3c'; // Rojo para errores
+                }
+
+            } catch (error) {
+                console.error('Fallo en la conexión o API:', error);
+                resultadoDiv.textContent = 'Error de conexión con el servidor de divisas.';
+                resultadoDiv.style.color = '#e74c3c';
+            }
+        }
+
+        // Llamar a la función al cargar la página para mostrar un resultado inicial
+        document.addEventListener('DOMContentLoaded', convertir);
+    </script>
+</body>
+</html>
