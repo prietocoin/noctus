@@ -283,7 +283,7 @@ app.get('/convertir', async (req, res) => {
     }
 
     try {
-        // 2. OBTENER Y FILTRAR TASAS DINÁMICAS (Reutilizando la lógica de /tasas)
+        // 2. OBTENER Y FILTRAR TASAS DINÁMICAS (Lógica de IDTAS más alto)
         const allTasas = await getSheetData(RANGO_TASAS); 
         
         const latestRow = allTasas.reduce((max, current) => {
@@ -296,27 +296,31 @@ app.get('/convertir', async (req, res) => {
              return res.status(503).json({ error: "No se pudieron obtener datos de tasas dinámicas recientes." });
         }
 
-        // 3. EXTRAER TASAS T_O y T_D
-        const Tasa_O_key = `${O}_O`;
-        const Tasa_D_key = `${D}_O`;
+        // 3. EXTRAER TASAS T_O y T_D: ¡CORRECCIÓN APLICADA AQUÍ!
+        // Asumimos que TODAS las tasas en la hoja de Sheets terminan en _O
+        // (es decir, Tasa Origen y Tasa Destino se buscan bajo el mismo patrón)
+        const Tasa_O_key = `${O}_O`; // Ej: EUR_O
+        const Tasa_D_key = `${D}_O`; // Ej: COP_O
 
         const T_O_str = latestRow[Tasa_O_key];
         const T_D_str = latestRow[Tasa_D_key];
         
         if (!T_O_str || !T_D_str) {
-             return res.status(404).json({ error: `Tasa dinámica no encontrada para ${O} o ${D} en la última fila.` });
+             // Este error ahora cubre si la columna no existe en Sheets
+             return res.status(404).json({ error: `Clave no encontrada en Sheets para ${O} o ${D}. Verifica que el encabezado sea exactamente ${Tasa_O_key} y ${Tasa_D_key}.` });
         }
 
         const T_O = parseFloat(T_O_str) || 0;
         const T_D = parseFloat(T_D_str) || 0;
 
         if (T_O === 0 || T_D === 0) {
-            return res.status(404).json({ error: "Una de las tasas dinámicas es cero." });
+            // Este error cubre si el valor de la celda es 0 o un texto vacío que no se puede parsear
+            return res.status(404).json({ error: "El valor de una de las tasas dinámicas es cero o inválido en la hoja de cálculo." });
         }
 
-        // 4. BUSCAR FACTOR DE GANANCIA (F) en la matriz fija
-        const claveMatrizDestino = `${D}_D`;
-        const claveMatrizOrigen = `${O}_O`;
+        // 4. BUSCAR FACTOR DE GANANCIA (F) en la matriz fija: ¡USA AMBOS SUFIJOS!
+        const claveMatrizDestino = `${D}_D`; // Ej: COP_D (Fila)
+        const claveMatrizOrigen = `${O}_O`; // Ej: EUR_O (Columna)
 
         const filaDestino = MATRIZ_CRUCE_FACTORES.find(row => row["+/-"] === claveMatrizDestino);
         
@@ -345,12 +349,4 @@ app.get('/convertir', async (req, res) => {
         console.error('Error en /convertir: ', error.message);
         res.status(500).json({ error: 'Error interno del servidor al procesar la conversión.', detalle: error.message });
     }
-});
-
-
-// --- INICIO DEL SERVIDOR (TU CÓDIGO ORIGINAL) ---
-app.listen(PORT, () => {
-    console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
-    console.log(`Acceso API de prueba: http://localhost:${PORT}/`);
-    console.log(`¡NUEVO SERVICIO LISTO! Ejemplo: http://localhost:${PORT}/convertir?cantidad=100&origen=USD&destino=COP`);
 });
