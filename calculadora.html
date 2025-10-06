@@ -3,211 +3,242 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Divisas NOCTUS API</title>
+    <title>Calculadora de Divisas NOCTUS</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f7f6;
-            color: #333;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
             display: flex;
-            justify-content: center;
+            flex-direction: column; /* Para apilar elementos verticalmente */
             align-items: center;
             min-height: 100vh;
-            margin: 0;
         }
-        .converter-card {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        .header-branding {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header-branding img {
+            max-width: 80px; /* Ajusta el tamaño del búho */
+            height: auto;
+            margin-bottom: 10px;
+        }
+        .header-branding .brand-name {
+            font-size: 2.2em; /* Tamaño para FUNDABLOCK */
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .header-branding .tagline {
+            font-size: 1.2em; /* Tamaño para NOCTUS */
+            color: #555;
+            margin-bottom: 5px;
+        }
+        .header-branding .version-info {
+            font-size: 0.9em;
+            color: #777;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             width: 100%;
             max-width: 400px;
-            text-align: center;
+            box-sizing: border-box;
         }
         h1 {
-            color: #1abc9c;
-            margin-bottom: 25px;
-            font-size: 1.8em;
-        }
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
+            text-align: center;
+            color: #333;
+            margin-top: 0;
         }
         label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
         }
         input[type="number"], select {
-            width: 100%;
-            padding: 12px;
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 15px;
             border: 1px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-size: 1em;
-            appearance: none; 
+            border-radius: 4px;
         }
-        #resultado {
-            margin-top: 30px;
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
             padding: 15px;
-            background-color: #e8f8f5;
-            border-radius: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            text-align: center;
             font-size: 1.2em;
-            font-weight: bold;
-            color: #1abc9c;
-            min-height: 30px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            color: #333;
+            word-wrap: break-word; /* Para asegurar que el texto largo se ajuste */
         }
         .loading {
-            color: #555;
-            font-style: italic;
+            text-align: center;
+            margin-top: 10px;
+            color: #007bff;
         }
-        #info-tasa-dinamica {
-            margin-top: 15px; 
-            font-size: 0.85em; 
-            color: #555;
+        .error {
+            text-align: center;
+            margin-top: 10px;
+            color: #dc3545;
+        }
+        .timestamp-info {
+            font-size: 0.8em;
+            color: #777;
+            text-align: right;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="converter-card">
+    <div class="header-branding">
+        <img src="https://raw.githubusercontent.com/prietocoin/noctus/main/buho.png" alt="Logo Búho FUNDABLOCK"> 
+        <div class="brand-name">FUNDABLOCK</div>
+        <div class="tagline">NOCTUS</div>
+        <div class="version-info">Versión del Nuevo Sistema</div>
+    </div>
+
+    <div class="container">
         <h1>Calculadora de Divisas</h1>
 
-        <div class="input-group">
-            <label for="cantidad">Cantidad a Convertir</label>
-            <input type="number" id="cantidad" value="100" min="1" step="any" oninput="convertir()">
-        </div>
+        <label for="amount">Cantidad a Convertir:</label>
+        <input type="number" id="amount" value="100">
 
-        <div class="input-group">
-            <label for="origen">De:</label>
-            <select id="origen" onchange="convertir()">
-                <option value="USD">USD - Dólar Estadounidense</option>
-                <option value="VES">VES - Bolívar Soberano</option>
-                <option value="COP">COP - Peso Colombiano</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="MXN">MXN - Peso Mexicano</option>
-                <option value="ARS">ARS - Peso Argentino</option>
-                <option value="PEN">PEN - Sol Peruano</option>
-                <option value="CLP">CLP - Peso Chileno</option>
-                <option value="BRL">BRL - Real Brasileño</option>
-                <option value="PYG">PYG - Guaraní Paraguayo</option>
-                <option value="DOP">DOP - Peso Dominicano</option>
-                <option value="BOB">BOB - Boliviano</option>
-                <option value="CRC">CRC - Colón Costarricense</option>
-                <option value="UYU">UYU - Peso Uruguayo</option>
+        <label for="originCurrency">De:</label>
+        <select id="originCurrency">
             </select>
-        </div>
 
-        <div class="input-group">
-            <label for="destino">A:</label>
-            <select id="destino" onchange="convertir()">
-                <option value="COP">COP - Peso Colombiano</option>
-                <option value="USD">USD - Dólar Estadounidense</option>
-                <option value="VES">VES - Bolívar Soberano</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="MXN">MXN - Peso Mexicano</option>
-                <option value="ARS">ARS - Peso Argentino</option>
-                <option value="PEN">PEN - Sol Peruano</option>
-                <option value="CLP">CLP - Peso Chileno</option>
-                <option value="BRL">BRL - Real Brasileño</option>
-                <option value="PYG">PYG - Guaraní Paraguayo</option>
-                <option value="DOP">DOP - Peso Dominicano</option>
-                <option value="BOB">BOB - Boliviano</option>
-                <option value="CRC">CRC - Colón Costarricense</option>
-                <option value="UYU">UYU - Peso Uruguayo</option>
+        <label for="destinationCurrency">A:</label>
+        <select id="destinationCurrency">
             </select>
-        </div>
 
-        <div id="resultado">
-            Esperando datos...
-        </div>
-        <div id="info-tasa-dinamica">
-            </div>
+        <button onclick="convertCurrency()">Convertir</button>
+
+        <div class="result" id="result"></div>
+        <div class="loading" id="loading">Cargando...</div>
+        <div class="error" id="error"></div>
+        <div class="timestamp-info" id="timestampInfo"></div>
     </div>
 
     <script>
-        const API_BASE_URL = "https://noctus.jairokov.com"; 
-        
-        const formatter = new Intl.NumberFormat('es-CO', {
-            style: 'currency',
-            currency: 'COP', 
-            minimumFractionDigits: 2
+        const API_BASE_URL = 'https://noctus.jairokov.com'; // TU API EN EL VPS
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const resultDiv = document.getElementById('result');
+        const timestampInfoDiv = document.getElementById('timestampInfo');
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadCurrencies();
+            hideLoading();
         });
 
-        // Función para convertir el timestamp Unix a una fecha legible
-        function formatTimestamp(unixTimestamp) {
-            const timePart = parseInt(unixTimestamp);
-            // Asume que el valor es un timestamp Unix en milisegundos si es muy grande
-            const isMilliseconds = timePart > 1000000000000;
-            const ms = isMilliseconds ? timePart : timePart * 1000;
-            
-            const date = new Date(ms); 
-            if (isNaN(date.getTime())) return 'Fecha Desconocida';
+        async function fetchApi(endpoint) {
+            showLoading();
+            errorDiv.textContent = ''; // Limpiar errores previos
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                hideLoading();
+                return data;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                errorDiv.textContent = `Error: ${error.message}. Por favor, intente de nuevo.`;
+                hideLoading();
+                throw error; // Propagar el error
+            }
+        }
 
-            return date.toLocaleString('es-ES', { 
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit' 
+        async function loadCurrencies() {
+            try {
+                const data = await fetchApi('/tasas');
+                const latestRow = data[0]; // Ya sabemos que getSheetData devuelve [latestRow]
+
+                const currencies = Object.keys(latestRow)
+                                         .filter(key => key.endsWith('_O')) // Filtrar por sufijo _O
+                                         .map(key => key.slice(0, -2)); // Remover el sufijo _O
+
+                populateDropdown('originCurrency', currencies);
+                populateDropdown('destinationCurrency', currencies);
+
+                // Establecer valores predeterminados
+                document.getElementById('originCurrency').value = 'USD'; // Ejemplo: USD por defecto
+                document.getElementById('destinationCurrency').value = 'COP'; // Ejemplo: COP por defecto
+
+            } catch (error) {
+                console.error("Error al cargar divisas:", error);
+                errorDiv.textContent = "No se pudieron cargar las divisas. Intente recargar.";
+            }
+        }
+
+        function populateDropdown(id, currencies) {
+            const selectElement = document.getElementById(id);
+            selectElement.innerHTML = ''; // Limpiar opciones existentes
+            currencies.forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency;
+                option.textContent = currency;
+                selectElement.appendChild(option);
             });
         }
 
-        async function convertir() {
-            const cantidad = document.getElementById('cantidad').value;
-            const origen = document.getElementById('origen').value;
-            const destino = document.getElementById('destino').value;
-            const resultadoDiv = document.getElementById('resultado');
-            const infoDiv = document.getElementById('info-tasa-dinamica');
+        async function convertCurrency() {
+            const amount = document.getElementById('amount').value;
+            const origin = document.getElementById('originCurrency').value;
+            const destination = document.getElementById('destinationCurrency').value;
 
-            if (!cantidad || cantidad <= 0) {
-                resultadoDiv.textContent = "Ingrese una cantidad válida.";
-                infoDiv.textContent = '';
+            if (!amount || amount <= 0) {
+                errorDiv.textContent = "Por favor, ingrese una cantidad válida.";
+                resultDiv.textContent = '';
                 return;
             }
 
-            resultadoDiv.innerHTML = '<span class="loading">Calculando...</span>';
-            infoDiv.textContent = ''; 
-
-            const url = `${API_BASE_URL}/convertir?cantidad=${cantidad}&origen=${origen}&destino=${destino}`;
-
             try {
-                const response = await fetch(url);
-                const data = await response.json();
+                const endpoint = `/convertir?cantidad=${amount}&origen=${origin}&destino=${destination}`;
+                const data = await fetchApi(endpoint);
 
                 if (data.status === "success") {
-                    formatter.currency = destino; 
-                    const montoFormateado = formatter.format(data.monto_convertido);
-                    
-                    resultadoDiv.innerHTML = `${montoFormateado} (${destino})`;
-                    resultadoDiv.style.color = '#1abc9c';
-
-                    // MOSTRAR IDTAS y Fecha
-                    const fechaFormateada = formatTimestamp(data.detalle.timestamp_actual);
-
-                    infoDiv.innerHTML = `
-                        ID Tasa: <b>${data.detalle.id_tasa_actual}</b><br>
-                        Última Actualización: ${fechaFormateada}
-                    `;
-                    infoDiv.style.color = '#555';
-
+                    resultDiv.innerHTML = `<strong>${data.monto_convertido.toFixed(2)} (${destination})</strong>`;
+                    timestampInfoDiv.textContent = `Última Actualización: ${data.detalle.timestamp_actual}`;
                 } else {
-                    resultadoDiv.textContent = `Error: ${data.error}`;
-                    resultadoDiv.style.color = '#e74c3c';
-                    infoDiv.textContent = ''; 
+                    errorDiv.textContent = data.error || 'Error desconocido en la conversión.';
+                    resultDiv.textContent = '';
                 }
-
             } catch (error) {
-                console.error('Fallo en la conexión o API:', error);
-                resultadoDiv.textContent = 'Error de conexión con el servidor de divisas.';
-                resultadoDiv.style.color = '#e74c3c';
-                infoDiv.textContent = '';
+                console.error("Error durante la conversión:", error);
+                errorDiv.textContent = "Error al conectar con el servicio de conversión. Intente de nuevo.";
+                resultDiv.textContent = '';
             }
         }
 
-        document.addEventListener('DOMContentLoaded', convertir);
+        function showLoading() {
+            loadingDiv.style.display = 'block';
+            resultDiv.textContent = '';
+            timestampInfoDiv.textContent = '';
+        }
+
+        function hideLoading() {
+            loadingDiv.style.display = 'none';
+        }
     </script>
 </body>
 </html>
