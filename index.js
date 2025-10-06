@@ -4,23 +4,23 @@ const app = express();
 
 // --- CONFIGURACIÓN DE ENTORNO ---
 const PORT = process.env.PORT || 8080;
-// Ruta absoluta donde EasyPanel monta el archivo creado (Montaje de archivo)
+// RUTA ABSOLUTA que funciona con el Montaje de Archivo de EasyPanel
 const CREDENTIALS_PATH = '/workspace/credentials.json'; 
 const SPREADSHEET_ID = '19Lzcyy3YyeoGCffCjoDHK1tXgn_QkPmhGl7vbDHyrMU';
-const MAIN_SHEET_NAME = 'Datos_Para_La_App'; // Nombre único de la hoja
+const MAIN_SHEET_NAME = 'Datos_Para_La_App'; 
 
 // --- FUNCIONES DE UTILIDAD ---
 
 /**
  * Convierte un array de arrays (datos de Sheets) en un array de objetos
- * usando la primera fila como encabezados.
+ * usando la primera fila de la data como encabezados.
  * @param {Array<Array<string>>} data El array de datos de Google Sheets
  * @returns {Array<object>} Un array de objetos {columna: valor}
  */
 function transformToObjects(data) {
     if (!data || data.length === 0) return [];
 
-    // Usamos la primera fila como encabezados (ej: "FECHA", "COP+", etc.)
+    // Usamos la primera fila como encabezados
     const headers = data[0].map(h => h.trim());
     const rows = data.slice(1);
 
@@ -31,7 +31,7 @@ function transformToObjects(data) {
             // Asigna el valor o cadena vacía si es nulo
             obj[key] = row[index] || ''; 
         });
-        // Filtra objetos que son completamente vacíos (si Sheets devuelve filas en blanco)
+        // Filtra objetos que son completamente vacíos
         return obj;
     }).filter(obj => Object.values(obj).some(val => val !== '')); 
 }
@@ -81,25 +81,25 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.json({
         status: "API de NOCTUS en línea",
-        message: "Accede a los datos usando los siguientes endpoints:",
+        message: "Accede a los datos usando los siguientes endpoints (Enlaces Directos):",
         endpoints: [
-            "/api/tasas",
-            "/api/matriz_cruce",
-            "/api/matriz_emojis"
+            "/tasas",
+            "/matriz_cruce",
+            "/matriz_emojis"
         ]
     });
 });
 
-// --- RUTAS DE LA API (Endpoints) ---
+// --- RUTAS DE LA API (Endpoints con Enlaces Directos) ---
 
 // 1. Ruta de Datos Dinámicos (Telegram/Principal)
 // RANGO: A1:AL999 (Tabla 1)
-app.get('/api/tasas', async (req, res) => {
+app.get('/tasas', async (req, res) => {
     try {
         const data = await getSheetData('A1:AL999');
         res.json(data);
     } catch (error) {
-        console.error('Error en /api/tasas: ', error.message);
+        console.error('Error en /tasas: ', error.message);
         res.status(500).json({ 
             error: 'Error al obtener datos dinámicos (Tasas)', 
             detalle: error.message 
@@ -109,12 +109,12 @@ app.get('/api/tasas', async (req, res) => {
 
 // 2. Ruta de Matriz de Cruce Estática (Tabla 2)
 // RANGO: AN1:BD17
-app.get('/api/matriz_cruce', async (req, res) => {
+app.get('/matriz_cruce', async (req, res) => {
     try {
         const data = await getSheetData('AN1:BD17'); 
         res.json(data);
     } catch (error) {
-        console.error('Error en /api/matriz_cruce: ', error.message);
+        console.error('Error en /matriz_cruce: ', error.message);
         res.status(500).json({ 
             error: 'Error al obtener Matriz de Cruce (Estática 1)', 
             detalle: error.message 
@@ -124,12 +124,12 @@ app.get('/api/matriz_cruce', async (req, res) => {
 
 // 3. Ruta de Matriz de Emojis/Factores Estática (Tabla 3)
 // RANGO: AN19:BZ37
-app.get('/api/matriz_emojis', async (req, res) => {
+app.get('/matriz_emojis', async (req, res) => {
     try {
         const data = await getSheetData('AN19:BZ37'); 
         res.json(data);
     } catch (error) {
-        console.error('Error en /api/matriz_emojis: ', error.message);
+        console.error('Error en /matriz_emojis: ', error.message);
         res.status(500).json({ 
             error: 'Error al obtener Matriz Emojis (Estática 2)', 
             detalle: error.message 
@@ -140,5 +140,5 @@ app.get('/api/matriz_emojis', async (req, res) => {
 // --- INICIO DEL SERVIDOR ---
 app.listen(PORT, () => {
     console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
-    console.log(`Acceso API: http://localhost:${PORT}/api/tasas`);
+    console.log(`Acceso API de prueba: http://localhost:${PORT}/tasas`);
 });
