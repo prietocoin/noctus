@@ -10,16 +10,18 @@
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
-            padding: 10px; /* Solo padding horizontal */
+            padding: 10px; 
+            
+            /* AJUSTE CLAVE PARA CENTRADO VERTICAL */
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: center; /* Centra horizontalmente */
+            justify-content: center; /* <--- CENTRA VERTICALMENTE */
             min-height: 100vh;
         }
-        /* ENCABEZADO Y MARCA - MARGEN CORREGIDO PARA EL MÓVIL */
+        /* ENCABEZADO Y MARCA */
         .header-branding {
             text-align: center;
-            margin-top: 30px; /* <--- MARGEN CLAVE PARA EL MÓVIL (Aumentar si es necesario) */
             margin-bottom: 10px; 
         }
         .header-branding img {
@@ -104,7 +106,7 @@
         <img src="https://raw.githubusercontent.com/prietocoin/noctus/main/buho.jpeg" alt="Logo Búho FUNDABLOCK"> 
         <div class="brand-name">FUNDABLOCK</div>
         <div class="tagline">NOCTUS</div>
-        </div>
+    </div>
 
     <div class="container">
         <h1>Calculadora de Divisas</h1>
@@ -127,7 +129,16 @@
     <script>
         const API_BASE_URL = 'https://noctus.jairokov.com'; 
 
-        // Mapeo de códigos ISO a nombres de país/moneda (ACTUALIZADO)
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const resultDiv = document.getElementById('result');
+        const timestampInfoDiv = document.getElementById('timestampInfo');
+
+        const amountInput = document.getElementById('amount');
+        const originSelect = document.getElementById('originCurrency');
+        const destinationSelect = document.getElementById('destinationCurrency');
+
+        // Mapeo de códigos ISO a nombres de país/moneda
         const CURRENCY_NAMES = {
             'USD': 'Dólar Estadounidense (USD)',
             'EUR': 'Euro (EUR)',
@@ -143,20 +154,10 @@
             'BOB': 'Boliviano (BOB)',
             'CRC': 'Colón Costarricense (CRC)',
             'UYU': 'Peso Uruguayo (UYU)',
-            // 🟢 NUEVAS DEFINICIONES SOLICITADAS
-            'ECU': 'Dólar Ecuatoriano (ECU)', // Nombre para ECU
-            'PAN': 'Dólar Panameño (PAN)', // Nombre para PAN
-            'CAD': 'Dólar Canadiense (CAD)', // Nombre para CAD
+            'ECU': 'Dólar Ecuatoriano (ECU)',
+            'PAN': 'Dólar Panameño (PAN)',
+            'CAD': 'Dólar Canadiense (CAD)',
         };
-
-        const loadingDiv = document.getElementById('loading');
-        const errorDiv = document.getElementById('error');
-        const resultDiv = document.getElementById('result');
-        const timestampInfoDiv = document.getElementById('timestampInfo');
-
-        const amountInput = document.getElementById('amount');
-        const originSelect = document.getElementById('originCurrency');
-        const destinationSelect = document.getElementById('destinationCurrency');
 
         // Formateador para números
         const formatter = new Intl.NumberFormat('es-ES', {
@@ -195,7 +196,7 @@
         function populateDropdown(selectElement, currencies) {
             selectElement.innerHTML = ''; 
             currencies.forEach(currency => {
-                // IGNORAR/ELIMINAR PYUSD (si está en la API)
+                // IGNORAR/ELIMINAR PYUSD
                 if (currency === 'PYUSD') return;
                 
                 const option = document.createElement('option');
@@ -220,7 +221,6 @@
                 
                 const latestRow = dataArray[0];
 
-                // Extraer solo los códigos de divisa (filtrando por _O)
                 const currencies = Object.keys(latestRow)
                                          .filter(key => key.endsWith('_O'))
                                          .map(key => key.slice(0, -2));
@@ -229,11 +229,9 @@
                     throw new Error("No se encontraron códigos de divisa válidos en la respuesta.");
                 }
 
-                // Llenar los dropdowns
                 populateDropdown(originSelect, currencies);
                 populateDropdown(destinationSelect, currencies);
 
-                // Establecer valores predeterminados
                 originSelect.value = 'USD'; 
                 destinationSelect.value = 'COP'; 
 
@@ -270,10 +268,8 @@
                     
                     const destinationName = CURRENCY_NAMES[destination] || destination;
                     
-                    // Mostrar código de divisa junto al monto
                     resultDiv.innerHTML = `<strong>${destinationName}: ${montoFormateado}</strong>`;
                     
-                    // Mostrar IDTAS y Fecha
                     const fechaFormateada = formatTimestamp(data.detalle.timestamp_actual);
                     timestampInfoDiv.innerHTML = `
                         ID Tasa: <b>${data.detalle.id_tasa_actual}</b> | 
