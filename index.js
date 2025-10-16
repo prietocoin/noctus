@@ -10,9 +10,10 @@ const SPREADSHEET_ID = '1jv-wydSjH84MLUtj-zRvHsxUlpEiqe5AlkTkr6K2248';
 // Definiciones de Hojas y Rangos:
 const HOJA_GANANCIA = 'Miguelacho';
 const RANGO_GANANCIA = 'B2:L12'; // Matriz de cruce de porcentajes
+const RANGO_HEADERS_GANANCIA = 'B2:L2'; // Encabezados para TASAS-VES
+const RANGO_TASAS_VES = 'B23:L23'; 
 const HOJA_PRECIOS = 'Mercado';
 const RANGO_PRECIOS = 'A1:M999'; // Precios promedios
-const RANGO_TASAS_VES = 'B23:L23'; 
 
 // *** NUEVAS CONSTANTES SOLICITADAS ***
 const HOJA_IMAGEN = 'imagen';
@@ -44,18 +45,15 @@ function transformToObjects(data) {
     return rows.map(row => {
         const obj = {};
         headers.forEach((header, index) => {
-            // Usa el encabezado como clave
             const key = header;
             obj[key] = row[index] || '';
         });
-        // Filtra filas que están completamente vacías
         return obj;
     }).filter(obj => Object.values(obj).some(val => val !== ''));
 }
 
-// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS ---
-
-// Obtiene datos de Google Sheets y aplica transformación
+// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS (MODIFICADA) ---
+// Retorna valores crudos para rangos de procesamiento especial 
 async function getSheetData(sheetName, range) {
     const auth = new google.auth.GoogleAuth({
         keyFile: CREDENTIALS_PATH,
@@ -70,17 +68,27 @@ async function getSheetData(sheetName, range) {
             range: `${sheetName}!${range}`,
         });
 
-        let data = transformToObjects(response.data.values);
-        
-        // Lógica de filtrado de última fila solo aplica al rango de precios (Mercado)
-        if (sheetName === HOJA_PRECIOS && range === RANGO_PRECIOS && Array.isArray(data) && data.length > 0) {
-            // El último elemento es la fila más reciente
-            const latestRow = data[data.length - 1];
-            // Devolvemos el array con un solo objeto
-            return [latestRow];
+        const values = response.data.values;
+        if (!values || values.length === 0) return [];
+
+        // *** EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
+        // Esto se usa para rangos de fila única donde necesitamos los datos crudos.
+        if ((sheetName === HOJA_GANANCIA && (range === RANGO_TASAS_VES || range === RANGO_HEADERS_GANANCIA)) ||
+             (sheetName === HOJA_IMAGEN && range === RANGO_IMAGEN)) {
+            return values;
         }
 
-        return data;
+        // Lógica de filtrado de última fila solo aplica al rango de precios (Mercado)
+        if (sheetName === HOJA_PRECIOS && range === RANGO_PRECIOS && values.length > 0) {
+            const data = transformToObjects(values);
+            if(data.length > 0) {
+                const latestRow = data[data.length - 1];
+                return [latestRow];
+            }
+            return [];
+        }
+
+        return transformToObjects(values);
 
     } catch (err) {
         console.error(`La API de Google Sheets devolvió un error al leer la hoja ${sheetName} en el rango ${range}: ${err}`);
@@ -100,13 +108,10 @@ app.get('/', (req, res) => {
     const hostUrl = req.headers.host;
 
     const endpoints = [
-        // Rutas de datos maestros
         { path: '/tasas-promedio', description: 'DATOS MAESTROS: Tasas de Precios Promedio (última fila, Hoja Mercado)' },
         { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
         { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
-        // *** NUEVO ENDPOINT DOCUMENTADO ***
         { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
-        // Ruta de la Calculadora
         { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Centralizada)' }
     ];
 
@@ -181,11 +186,32 @@ app.get('/matriz-ganancia', async (req, res) => {
     }
 });
 
-// 3. TASA VES (Ruta original)
+// *** 3. TASA VES (RUTA CORREGIDA PARA DEVOLVER EL OBJETO) ***
 app.get('/tasas-ves', async (req, res) => {
     try {
-        const data = await getSheetData(HOJA_GANANCIA, RANGO_TASAS_VES); 
-        res.json(data); 
+        // Leemos los encabezados de B2:L2 y los valores de B23:L23
+        const headersArray = await getSheetData(HOJA_GANANCIA, RANGO_HEADERS_GANANCIA); 
+        const valuesArray = await getSheetData(HOJA_GANANCIA, RANGO_TASAS_VES); 
+
+        if (!headersArray || headersArray.length === 0 || !valuesArray || valuesArray.length === 0) {
+             return res.json([]);
+        }
+        
+        // Asumimos que los valores están en la fila 0 de cada array devuelto por getSheetData
+        const headers = headersArray[0];
+        const values = valuesArray[0];
+            
+        const resultObject = {};
+        if (Array.isArray(headers) && Array.isArray(values)) {
+            headers.forEach((header, index) => {
+                // Usamos el encabezado de B2:L2 como clave para los datos de B23:L23
+                resultObject[header.trim() || `Columna${index}`] = values[index] || '';
+            });
+        }
+        
+        // Devolverá un array con el objeto de la fila 23 (ej: [{USD: "0.82", COP: "0.87", ...}])
+        res.json([resultObject]);
+
     } catch (error) {
         console.error('Error en /tasas-ves: ', error.message);
         res.status(500).json({ error: 'Error al obtener Tasas VES.', detalle: error.message });
