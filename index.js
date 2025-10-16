@@ -12,9 +12,11 @@ const HOJA_GANANCIA = 'Miguelacho';
 const RANGO_GANANCIA = 'B2:L12'; // Matriz de cruce de porcentajes
 const HOJA_PRECIOS = 'Mercado';
 const RANGO_PRECIOS = 'A1:M999'; // Precios promedios
-
-// *** NUEVO ENDPOINT CONFIGURACIÓN ***
 const RANGO_TASAS_VES = 'B23:L23'; 
+
+// *** NUEVAS CONSTANTES SOLICITADAS ***
+const HOJA_IMAGEN = 'imagen';
+const RANGO_IMAGEN = 'B15:L16';
 
 // --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
 
@@ -23,9 +25,6 @@ function parseFactor(factorString) {
     if (typeof factorString !== 'string') return 1.0;
     return parseFloat(factorString.replace(',', '.')) || 1.0;
 }
-
-
-// --- FUNCIONES DE UTILIDAD ---
 
 // Transforma la respuesta de Sheets en un array de objetos JSON
 function transformToObjects(data) {
@@ -104,8 +103,9 @@ app.get('/', (req, res) => {
         // Rutas de datos maestros
         { path: '/tasas-promedio', description: 'DATOS MAESTROS: Tasas de Precios Promedio (última fila, Hoja Mercado)' },
         { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
+        { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
         // *** NUEVO ENDPOINT DOCUMENTADO ***
-        { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia específica (Hoja Miguelacho, Fila 23)' },
+        { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
         // Ruta de la Calculadora
         { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Centralizada)' }
     ];
@@ -156,137 +156,4 @@ app.get('/', (req, res) => {
 
 // --- NUEVAS RUTAS DE DATOS CRUDOS PARA MIGUELACHO (API ESCLAVA) ---
 
-// 1. Obtener la última fila de Precios Promedio (Hoja Mercado)
-app.get('/tasas-promedio', async (req, res) => {
-    try {
-        let data = await getSheetData(HOJA_PRECIOS, RANGO_PRECIOS);
-        res.json(data); // Devolverá el array con el último objeto
-    } catch (error) {
-        console.error('Error en /tasas-promedio: ', error.message);
-        res.status(500).json({
-            error: 'Error al obtener datos de Tasas Promedio.',
-            detalle: error.message
-        });
-    }
-});
-
-// 2. Obtener la Matriz de Ganancia (Hoja Miguelacho)
-app.get('/matriz-ganancia', async (req, res) => {
-    try {
-        const data = await getSheetData(HOJA_GANANCIA, RANGO_GANANCIA);
-        res.json(data);
-    } catch (error) {
-        console.error('Error en /matriz-ganancia: ', error.message);
-        res.status(500).json({ error: 'Error al obtener Matriz de Ganancia.', detalle: error.message });
-    }
-});
-
-// *** 3. NUEVA RUTA: Obtener Tasa de Ganancia VES (Hoja Miguelacho, Fila 23) ***
-app.get('/tasas-ves', async (req, res) => {
-    try {
-        // Utilizamos HOJA_GANANCIA para la hoja "Miguelacho" y el nuevo rango
-        const data = await getSheetData(HOJA_GANANCIA, RANGO_TASAS_VES);
-        res.json(data);
-    } catch (error) {
-        console.error('Error en /tasas-ves: ', error.message);
-        res.status(500).json({ error: 'Error al obtener Tasas VES.', detalle: error.message });
-    }
-});
-
-
-// 4. SERVICIO DE CONVERSIÓN CENTRALIZADO (MANTENEMOS LA RUTA ORIGINAL PARA COMPATIBILIDAD)
-app.get('/convertir', async (req, res) => {
-    // 1. Obtener y validar parámetros
-    const { cantidad, origen, destino } = req.query;
-
-    const monto = parseFloat(cantidad);
-    const O = origen ? origen.toUpperCase() : null;
-    const D = destino ? destino.toUpperCase() : null;
-
-    if (!monto || !O || !D) {
-        return res.status(400).json({ error: "Parámetros faltantes o inválidos." });
-    }
-
-    try {
-        // 2. OBTENER ÚLTIMA FILA de tasas (Hoja Mercado)
-        const latestRowArray = await getSheetData(HOJA_PRECIOS, RANGO_PRECIOS);
-
-        if (!Array.isArray(latestRowArray) || latestRowArray.length === 0) {
-             return res.status(503).json({ error: "No se pudieron obtener datos de tasas promedio recientes." });
-        }
-
-        const latestRow = latestRowArray[latestRowArray.length - 1]; // Último objeto
-
-        // 3. OBTENER MATRIZ DE GANANCIA (Hoja Miguelacho)
-        const matrizGanancia = await getSheetData(HOJA_GANANCIA, RANGO_GANANCIA);
-
-        if (!matrizGanancia || matrizGanancia.length === 0) {
-            return res.status(503).json({ error: "No se pudo obtener la Matriz de Ganancia." });
-        }
-
-        // 4. EXTRACCIÓN Y VALIDACIÓN DE TASAS DINÁMICAS (ORIGEN _O y DESTINO _D)
-        const Tasa_O_key = `${O}_O`;
-        const Tasa_D_key = `${D}_D`;
-
-        const T_O_str = latestRow[Tasa_O_key];
-        const T_D_str = latestRow[Tasa_D_key];
-
-        if (!T_O_str || !T_D_str) {
-             return res.status(404).json({ error: `Clave no encontrada en Hoja Mercado. Verifique que ${Tasa_O_key} y ${Tasa_D_key} existan.` });
-        }
-
-        const T_O = parseFloat(T_O_str.replace(',', '.')) || 0;
-        const T_D = parseFloat(T_D_str.replace(',', '.')) || 0;
-
-        if (T_O === 0 || T_D === 0) {
-            return res.status(404).json({ error: "El valor de una de las tasas dinámicas es cero o inválido." });
-        }
-
-        // 5. BUSCAR FACTOR DE GANANCIA (F) en la matriz leída de Sheets
-        const claveMatrizDestino = `${D}_D`;
-        const claveMatrizOrigen = claveMatrizDestino in matrizGanancia[0] ? `${O}_D` : `${O}_O`;
-        
-        const primeraClave = Object.keys(matrizGanancia[0])[0];
-        const filaDestino = matrizGanancia.find(row => row[primeraClave] === claveMatrizDestino);
-
-        if (!filaDestino || !filaDestino[claveMatrizOrigen]) {
-            const fallbackKey = `${O}_O`;
-            if (!filaDestino || !filaDestino[fallbackKey]) {
-                return res.status(404).json({ error: `Factor de ganancia (matriz) no encontrado para el par ${O} -> ${D}.` });
-            }
-        }
-        
-        const Factor_F = parseFactor(filaDestino[claveMatrizOrigen] || filaDestino[fallbackKey]);
-
-        // 6. CÁLCULO FINAL: Monto * ( (T_D / T_O) * F )
-        const montoConvertido = monto * ( (T_D / T_O) * Factor_F );
-
-        // 7. Devolver resultado JSON
-        res.json({
-            status: "success",
-            conversion_solicitada: `${monto} ${O} a ${D}`,
-            monto_convertido: parseFloat(montoConvertido.toFixed(4)),
-            detalle: {
-                factor_ganancia: Factor_F,
-                id_tasa_actual: latestRow.IDTAS || 'N/A',
-                timestamp_actual: latestRow.FECHA || 'N/A'
-            }
-        });
-
-    } catch (error) {
-        console.error('Error fatal en /convertir: ', error.message);
-        res.status(500).json({ error: 'Error interno del servidor al procesar la conversión.', detalle: error.message });
-    }
-});
-
-// --- INICIO DEL SERVIDOR ---
-app.listen(PORT, () => {
-    console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
-    console.log(`Acceso API de prueba: http://localhost:${PORT}/`);
-});
-
-// --- MANEJADOR DE APAGADO ELEGANTE ---
-process.on('SIGTERM', () => {
-    console.log('[SHUTDOWN] Señal SIGTERM recibida. Terminando proceso de NOCTUS...');
-    process.exit(0);
-});
+// 1. Obtener la última fila de
