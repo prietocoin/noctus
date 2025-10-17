@@ -1,291 +1,105 @@
 const express = require('express');
-const { google } = require('googleapis');
+const sharp = require('sharp');
+const fs = require('fs');
+
 const app = express();
+const PORT = 3000; 
 
-// --- CONFIGURACIÓN DE ENTORNO ---
-const PORT = process.env.PORT || 8080;
-const CREDENTIALS_PATH = '/workspace/credentials.json';
+// Aumentamos el límite de cuerpo para aceptar buffers de imágenes grandes
+app.use(express.json({ limit: '10mb' })); 
 
-// *** PARÁMETROS ORIGINALES DEL SERVIDOR (No se modifican) ***
-const SPREADSHEET_ID = '1jv-wydSjH84MLUtj-zRvHsxUlpEiqe5AlkTkr6K2248'; // ID Original
-const HOJA_GANANCIA = 'Miguelacho';
-const RANGO_GANANCIA = 'B2:L12'; 
-const RANGO_HEADERS_GANANCIA = 'B2:L2'; 
-const RANGO_TASAS_VES = 'B23:L23'; 
-const HOJA_PRECIOS = 'Mercado';
-const RANGO_PRECIOS = 'A1:M999'; 
-const HOJA_IMAGEN = 'imagen'; // Se mantiene por la ruta /datos-imagen
-const RANGO_IMAGEN = 'B15:L16'; 
-
-// *** CONSTANTES DEL NUEVO ENDPOINT (ACTUALIZADAS) ***
-const HOJA_FUNDABLOCK = 'imagen'; // Usamos la HOJA_IMAGEN original
-const RANGO_FUNDABLOCK = 'B18:K19'; // RANGO ACTUALIZADO: B18 (Claves) y K19 (Valores)
-const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; 
-
-
-// --- FUNCIONES (NO SE MODIFICAN) ---
-
-// Convierte cadena con coma decimal a número (ej. "0,93" -> 0.93)
-function parseFactor(factorString) {
-    if (typeof factorString !== 'string') return 1.0;
-    return parseFloat(factorString.replace(',', '.')) || 1.0;
-}
-
-// Transforma la respuesta de Sheets en un array de objetos JSON (NO SE MODIFICA)
-function transformToObjects(data) {
-    if (!data || data.length === 0) return [];
+// --- FUNCIÓN DE GENERACIÓN DE IMAGEN ---
+async function generateTasaImage(payload) {
     
-    let headerRowIndex = 0;
-    while (headerRowIndex < data.length && data[headerRowIndex].filter(String).length === 0) {
-        headerRowIndex++;
+    const { tasas, coordenadas, config } = payload;
+    
+    // Verificación de Base64
+    const baseImageBase64 = payload.imagen_base_b64; 
+    
+    if (!baseImageBase64) {
+        throw new Error("El payload no contiene 'imagen_base_b64'.");
     }
-    
-    if (headerRowIndex >= data.length) return []; 
-    
-    const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
-    const rows = data.slice(headerRowIndex + 1);
 
-    return rows.map(row => {
-        const obj = {};
-        headers.forEach((header, index) => {
-            const key = header;
-            obj[key] = row[index] || '';
+    const baseImageBuffer = Buffer.from(baseImageBase64, 'base64');
+    
+    // Definiciones de estilo
+    const FINAL_COLOR = "rgb(0, 0, 0)"; // NEGRO
+    // Valor por defecto de la fuente si el campo 'size' falta en n8n
+    const FONT_SIZE_FALLBACK = 72; 
+
+    let svgLayers = [];
+
+    // Dimensiones seguras del SVG
+    const SVG_WIDTH = 1100;
+    const SVG_HEIGHT = 1400;
+    
+    // ITERAMOS sobre las coordenadas
+    for (const [clave_plantilla, coord] of Object.entries(coordenadas)) {
+        const valor = tasas[clave_plantilla] || "N/A"; 
+
+        // AJUSTE CRÍTICO: Extraemos el tamaño directamente del objeto 'coord',
+        // que es donde n8n lo envía (coord.size).
+        const fontSizeForText = coord.size || FONT_SIZE_FALLBACK; 
+
+        // SINTAXIS FINAL: Oswald Bold
+        const svgText = '<svg width="' + SVG_WIDTH + '" height="' + SVG_HEIGHT + '">' + 
+            '<text x="' + coord.x + '" y="' + coord.y + '" ' + 
+            'font-family="Oswald Bold" font-weight="bold" font-size="' + fontSizeForText + '" ' + 
+            'fill="' + FINAL_COLOR + '" text-anchor="end">' + 
+            valor +
+            '</text></svg>';
+
+        svgLayers.push({
+            input: Buffer.from(svgText),
+            left: 0,
+            top: 0
         });
-        return obj;
-    }).filter(obj => Object.values(obj).some(val => val !== ''));
-}
+    }
 
-// Función principal de Google Sheets (NO SE MODIFICA)
-async function getSheetData(sheetName, range) {
-    const auth = new google.auth.GoogleAuth({
-        keyFile: CREDENTIALS_PATH,
-        scopes: 'https://www.googleapis.com/auth/spreadsheets.readonly',
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
-
+    // Componer la imagen y devolver el buffer
     try {
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetName}!${range}`,
-        });
+        // PASO 1: Redimensionar la imagen de entrada al estándar 1080x1350
+        const STANDARD_WIDTH = 1080; 
+        const STANDARD_HEIGHT = 1350;
 
-        const values = response.data.values;
-        if (!values || values.length === 0) return [];
+        const resizedImageBuffer = await sharp(baseImageBuffer, { limitInputPixels: false })
+            .resize(STANDARD_WIDTH, STANDARD_HEIGHT, {
+                fit: 'contain', 
+                background: { r: 0, g: 0, b: 0, alpha: 0 } 
+            })
+            .toBuffer();
 
-        // *** EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
-        if ((sheetName === HOJA_GANANCIA && (range === RANGO_TASAS_VES || range === RANGO_HEADERS_GANANCIA)) ||
-             (sheetName === HOJA_IMAGEN && (range === RANGO_IMAGEN || range === RANGO_FUNDABLOCK))) { // RANGO_FUNDABLOCK se añade a HOJA_IMAGEN
-            return values;
-        }
+        // PASO 2: Superponer el SVG sobre el lienzo redimensionado
+        return await sharp(resizedImageBuffer) 
+            .composite(svgLayers) 
+            .toFormat('jpeg')
+            .toBuffer();
 
-        // Lógica de filtrado de última fila solo aplica al rango de precios (Mercado)
-        if (sheetName === HOJA_PRECIOS && range === RANGO_PRECIOS && values.length > 0) {
-            const data = transformToObjects(values);
-            if(data.length > 0) {
-                const latestRow = data[data.length - 1];
-                return [latestRow];
-            }
-            return [];
-        }
-
-        return transformToObjects(values);
-
-    } catch (err) {
-        console.error(`La API de Google Sheets devolvió un error al leer la hoja ${sheetName} en el rango ${range}: ${err}`);
-        throw err;
+    } catch (e) {
+        console.error("Error de Sharp al procesar la imagen:", e.message);
+        throw new Error(`Sharp error: ${e.message}`);
     }
 }
 
-// --- MIDDLEWARE Y RUTA RAÍZ (NO SE MODIFICAN) ---
-app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    next();
-});
-
-// Ruta raíz... (código existente)
-app.get('/', (req, res) => {
-    const hostUrl = req.headers.host;
-
-    const endpoints = [
-        { path: '/tasas-promedio', description: 'DATOS MAESTROS: Tasas de Precios Promedio (última fila, Hoja Mercado)' },
-        { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
-        { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
-        { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
-        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja imagen, Rango B18:K19)' }, 
-        { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Centralizada)' }
-    ];
-
-    const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>NOCTUS API - MAESTRA</title>
-            <style>
-                body { font-family: Arial, sans-serif; background-color: #0d1117; color: #c9d1d9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-                .container { background-color: #161b22; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); width: 90%; max-width: 600px; }
-                h1 { color: #58a6ff; border-bottom: 2px solid #30363d; padding-bottom: 10px; margin-top: 0; }
-                .endpoint-list { list-style: none; padding: 0; }
-                .endpoint-item { margin-bottom: 15px; background-color: #21262d; padding: 15px; border-radius: 8px; transition: background-color 0.3s; }
-                .endpoint-item:hover { background-color: #30363d; }
-                .endpoint-item a { text-decoration: none; color: #58a6ff; font-weight: bold; display: block; font-size: 1.1em; margin-bottom: 5px; word-wrap: break-word; }
-                .endpoint-item p { margin: 0; color: #8b949e; font-size: 0.9em; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>API MAESTRA (NOCTUS) en Línea</h1>
-                <p>Esta API es la única con acceso a Google Sheets y sirve los datos a la API Esclava (Miguelacho). Haz clic en los enlaces para ver los datos JSON:</p>
-                <ul class="endpoint-list">
-                    ${endpoints.map(ep => {
-                        const linkPath = ep.path.startsWith('/') ? ep.path : '/' + ep.path;
-                        const fullLinkDisplay = `${hostUrl}${linkPath}`;
-                        return `
-                        <li class="endpoint-item">
-                            <a href="${linkPath}">${fullLinkDisplay}</a>
-                            <p>${ep.description}</p>
-                        </li>
-                        `;
-                    }).join('')}
-                </ul>
-                <p style="text-align: center; font-size: 0.8em; color: #484f58;">Estrategia: NOCTUS Maestra ➡️ Miguelacho Esclava ➡️ Aplicación Web</p>
-            </div>
-        </body>
-        </html>
-    `;
-
-    res.setHeader('Content-Type', 'text/html');
-    res.send(htmlContent);
-});
-
-// --- RUTAS DE DATOS ORIGINALES (NO SE MODIFICAN) ---
-
-app.get('/tasas-promedio', async (req, res) => {
+// --- RUTA API (LLAMADA POR N8N) ---
+app.post('/generate-tasa', async (req, res) => {
     try {
-        let data = await getSheetData(HOJA_PRECIOS, RANGO_PRECIOS);
-        res.json(data);
-    } catch (error) {
-        console.error('Error en /tasas-promedio: ', error.message);
-        res.status(500).json({ error: 'Error al obtener datos de Tasas Promedio.', detalle: error.message });
-    }
-});
-
-app.get('/matriz-ganancia', async (req, res) => {
-    try {
-        const data = await getSheetData(HOJA_GANANCIA, RANGO_GANANCIA);
-        res.json(data);
-    } catch (error) {
-        console.error('Error en /matriz-ganancia: ', error.message);
-        res.status(500).json({ error: 'Error al obtener Matriz de Ganancia.', detalle: error.message });
-    }
-});
-
-app.get('/tasas-ves', async (req, res) => {
-    try {
-        const headersArray = await getSheetData(HOJA_GANANCIA, RANGO_HEADERS_GANANCIA); 
-        const valuesArray = await getSheetData(HOJA_GANANCIA, RANGO_TASAS_VES); 
-
-        if (!headersArray || headersArray.length === 0 || !valuesArray || valuesArray.length === 0) {
-             return res.json([]);
-        }
+        const payload = req.body;
         
-        const headers = headersArray[0];
-        const values = valuesArray[0];
-            
-        const resultObject = {};
-        if (Array.isArray(headers) && Array.isArray(values)) {
-            headers.forEach((header, index) => {
-                resultObject[header.trim() || `Columna${index}`] = values[index] || '';
-            });
+        // Verificación de existencia
+        if (!payload.tasas || !payload.coordenadas || !payload.imagen_base_b64) {
+            return res.status(400).send("Faltan 'tasas', 'coordenadas' o 'imagen_base_b64' en el cuerpo.");
         }
+
+        const imageBuffer = await generateTasaImage(payload);
         
-        res.json([resultObject]);
-
+        res.set('Content-Type', 'image/jpeg');
+        res.send(imageBuffer);
     } catch (error) {
-        console.error('Error en /tasas-ves: ', error.message);
-        res.status(500).json({ error: 'Error al obtener Tasas VES.', detalle: error.message });
+        res.status(500).send(`Error interno: ${error.message}`);
     }
 });
 
-app.get('/datos-imagen', async (req, res) => {
-    try {
-        const data = await getSheetData(HOJA_IMAGEN, RANGO_IMAGEN);
-        res.json(data);
-    } catch (error) {
-        console.error('Error en /datos-imagen: ', error.message);
-        res.status(500).json({ error: 'Error al obtener datos de Imagen.', detalle: error.message });
-    }
-});
-
-
-// =========================================================================
-// === NUEVO ENDPOINT SOLICITADO: /tasas-fundablock (Rango B18:K19) ========
-// =========================================================================
-
-/**
- * Endpoint dedicado a N8N para obtener las tasas del rango B18:K19 
- * y formatearlas como un solo objeto JSON {clave: valor} para la generación de imágenes.
- */
-app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
-    try {
-        // 1. Obtener los valores crudos del rango B18:K19
-        const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
-
-        // Verificamos que haya al menos dos filas (B18: Claves y B19: Valores)
-        if (!dataMatrix || dataMatrix.length < 2) { 
-            return res.json([]);
-        }
-
-        const ratesObject = {};
-        // Fila 18 (index 0): Claves (ej. COP, BRL, PEN...)
-        const headers = dataMatrix[0]; 
-        // Fila 19 (index 1): Valores (ej. 14.86, 48.73, ...)
-        const values = dataMatrix[1];  
-
-        // 2. Procesar las dos filas
-        if (Array.isArray(headers) && Array.isArray(values)) {
-            // Iteramos hasta la longitud de los valores
-            for (let index = 0; index < values.length; index++) {
-                // La clave es el encabezado B18, el valor es B19
-                const simpleKey = headers[index] ? headers[index].trim().toUpperCase() : null;
-                const value = values[index] || '';
-
-                if (simpleKey) {
-                    // Normalizar la coma a punto decimal
-                    ratesObject[simpleKey] = value.replace(',', '.'); 
-                }
-            }
-        }
-        
-        // 3. Devolver un array con el objeto final
-        res.json([ratesObject]);
-
-    } catch (error) {
-        console.error(`Error en ${NUEVA_RUTA_TASAS_FUNDABLOCK}: `, error.message);
-        res.status(500).json({ 
-            error: 'Error al obtener tasas para FUNDABLOCK.', 
-            detalle: error.message 
-        });
-    }
-});
-
-
-// 5. SERVICIO DE CONVERSIÓN CENTRALIZADO (RUTA ORIGINAL)
-app.get('/convertir', async (req, res) => {
-    // ... (código existente)
-});
-
-// --- INICIO DEL SERVIDOR (NO SE MODIFICA) ---
 app.listen(PORT, () => {
-    console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
-    console.log(`Acceso API de prueba: http://localhost:${PORT}/`);
-});
-
-// --- MANEJADOR DE APAGADO ELEGANTE (NO SE MODIFICA) ---
-process.on('SIGTERM', () => {
-    console.log('[SHUTDOWN] Señal SIGTERM recibida. Terminando proceso de NOCTUS...');
-    process.exit(0);
+    console.log(`Microservicio Sharp corriendo en puerto ${PORT}`);
 });
