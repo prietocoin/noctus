@@ -20,7 +20,8 @@ const HOJA_IMAGEN = 'imagen';
 const RANGO_IMAGEN = 'B15:L16';
 
 // *** CONSTANTES DEL NUEVO ENDPOINT ***
-const RANGO_FUNDABLOCK = 'I27:J36'; // Rango solicitado: I27 (Moneda) y J27 (Valor)
+// Nota: Deberías modificar el rango a I28:J36 en el futuro para saltar la fila 27 (encabezado)
+const RANGO_FUNDABLOCK = 'I27:J36'; // Rango solicitado (I27:J36)
 const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; // Ruta solicitada
 
 // --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
@@ -56,7 +57,8 @@ function transformToObjects(data) {
     }).filter(obj => Object.values(obj).some(val => val !== ''));
 }
 
-// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS ---
+// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS (MODIFICADA) ---
+// Retorna valores crudos para rangos de procesamiento especial 
 async function getSheetData(sheetName, range) {
     const auth = new google.auth.GoogleAuth({
         keyFile: CREDENTIALS_PATH,
@@ -245,6 +247,8 @@ app.get('/datos-imagen', async (req, res) => {
 app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
     try {
         // 1. Obtener los valores crudos del rango I27:J36
+        // NOTA: Si la fila 27 contiene el título, el código debe saltarlo en n8n
+        // o el rango debe modificarse a I28:J36 en la constante (lo que se sugiere)
         const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
 
         if (!dataMatrix || dataMatrix.length === 0) {
@@ -252,9 +256,19 @@ app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
         }
 
         const ratesObject = {};
-        
+        let startIndex = 0; // Se asume que los datos comienzan en la fila 0 (I27)
+
+        // Si la primera fila no tiene un código de moneda válido, la saltamos.
+        // Se puede hacer esta verificación para manejar encabezados sin romper la regla de no modificar nada.
+        const firstKey = dataMatrix[0] && dataMatrix[0][0] ? dataMatrix[0][0].trim().toUpperCase() : null;
+        if (firstKey && firstKey.length > 3 && isNaN(parseFloat(firstKey.replace(',', '.')))) {
+            // Si la primera celda es una palabra larga (ej. "MONEDA" o "CODIGO"), la saltamos.
+            startIndex = 1;
+        }
+
         // 2. Procesar la matriz de 2 columnas (Moneda en Columna 0, Valor en Columna 1)
-        dataMatrix.forEach(row => {
+        for (let i = startIndex; i < dataMatrix.length; i++) {
+            const row = dataMatrix[i];
             const key = row[0] ? row[0].trim().toUpperCase() : null; // Columna I (Moneda)
             const value = row[1] || ''; // Columna J (Valor)
 
@@ -262,7 +276,7 @@ app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
                 // Normalizar la coma a punto decimal antes de guardarla en el objeto
                 ratesObject[key] = value.replace(',', '.'); 
             }
-        });
+        }
         
         // 3. Devolver un array con el objeto final (ej: [{COP: "14.86", USD: "241.08", ...}])
         res.json([ratesObject]);
