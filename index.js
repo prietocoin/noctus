@@ -5,7 +5,7 @@ const app = express();
 // --- CONFIGURACIÓN DE ENTORNO ---
 const PORT = process.env.PORT || 8080;
 const CREDENTIALS_PATH = '/workspace/credentials.json';
-const SPREADSHEET_ID = '1jv-wydSjH84MLUtj-zRvHsxUlpEiqe5AlkTkr6K2248';
+const SPREADSHEET_ID = '1jv-wydSjH84MLUtj-zRvHsxUlpEiqe5AlkTkr6K2248'; // ID CONFIRMADO
 
 // Definiciones de Hojas y Rangos:
 const HOJA_GANANCIA = 'Miguelacho';
@@ -19,9 +19,9 @@ const RANGO_PRECIOS = 'A1:M999'; // Precios promedios
 const HOJA_IMAGEN = 'imagen';
 const RANGO_IMAGEN = 'B15:L16';
 
-// *** CONSTANTES DEL NUEVO ENDPOINT ***
-// Nota: Deberías modificar el rango a I28:J36 en el futuro para saltar la fila 27 (encabezado)
-const RANGO_FUNDABLOCK = 'I27:J36'; // Rango solicitado (I27:J36)
+// *** CONSTANTES DEL NUEVO ENDPOINT (ACTUALIZADAS) ***
+// El nuevo rango para /tasas-fundablock es B18:K19
+const RANGO_FUNDABLOCK = 'B18:K19'; 
 const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; // Ruta solicitada
 
 // --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
@@ -77,7 +77,7 @@ async function getSheetData(sheetName, range) {
         if (!values || values.length === 0) return [];
 
         // *** EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
-        // Se añade la excepción para el NUEVO RANGO_FUNDABLOCK
+        // El nuevo rango RANGO_FUNDABLOCK se añadió a la excepción
         if ((sheetName === HOJA_GANANCIA && (range === RANGO_TASAS_VES || range === RANGO_HEADERS_GANANCIA)) ||
              (sheetName === HOJA_IMAGEN && (range === RANGO_IMAGEN || range === RANGO_FUNDABLOCK))) {
             return values;
@@ -117,7 +117,7 @@ app.get('/', (req, res) => {
         { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
         { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
         { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
-        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja Imagen, Rango I27:J36)' }, // NUEVA RUTA
+        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja Imagen, Rango B18:K19)' }, // DESCRIPCIÓN ACTUALIZADA
         { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Centralizada)' }
     ];
 
@@ -200,7 +200,7 @@ app.get('/tasas-ves', async (req, res) => {
         const valuesArray = await getSheetData(HOJA_GANANCIA, RANGO_TASAS_VES); 
 
         if (!headersArray || headersArray.length === 0 || !valuesArray || valuesArray.length === 0) {
-             return res.json([]);
+            return res.json([]);
         }
         
         // Asumimos que los valores están en la fila 0 de cada array devuelto por getSheetData
@@ -237,18 +237,16 @@ app.get('/datos-imagen', async (req, res) => {
 
 
 // =========================================================================
-// === NUEVO ENDPOINT SOLICITADO: /tasas-fundablock (Rango I27:J36) ========
+// === NUEVO ENDPOINT SOLICITADO: /tasas-fundablock (Rango B18:K19) ========
 // =========================================================================
 
 /**
- * Endpoint dedicado a N8N para obtener las tasas del rango I27:J36
+ * Endpoint dedicado a N8N para obtener las tasas del rango B18:K19
  * y formatearlas como un solo objeto JSON {clave: valor} para la generación de imágenes.
  */
 app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
     try {
-        // 1. Obtener los valores crudos del rango I27:J36
-        // NOTA: Si la fila 27 contiene el título, el código debe saltarlo en n8n
-        // o el rango debe modificarse a I28:J36 en la constante (lo que se sugiere)
+        // 1. Obtener los valores crudos del rango B18:K19
         const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
 
         if (!dataMatrix || dataMatrix.length === 0) {
@@ -256,29 +254,29 @@ app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
         }
 
         const ratesObject = {};
-        let startIndex = 0; // Se asume que los datos comienzan en la fila 0 (I27)
+        
+        // El nuevo rango B18:K19 es una matriz de 2x10, donde la Fila 0 (18) son las claves
+        // y la Fila 1 (19) son los valores.
+        const keys = dataMatrix[0] || []; // Fila 18: B18, C18, D18... (Claves)
+        const values = dataMatrix[1] || []; // Fila 19: B19, C19, D19... (Valores)
 
-        // Si la primera fila no tiene un código de moneda válido, la saltamos.
-        // Se puede hacer esta verificación para manejar encabezados sin romper la regla de no modificar nada.
-        const firstKey = dataMatrix[0] && dataMatrix[0][0] ? dataMatrix[0][0].trim().toUpperCase() : null;
-        if (firstKey && firstKey.length > 3 && isNaN(parseFloat(firstKey.replace(',', '.')))) {
-            // Si la primera celda es una palabra larga (ej. "MONEDA" o "CODIGO"), la saltamos.
-            startIndex = 1;
-        }
-
-        // 2. Procesar la matriz de 2 columnas (Moneda en Columna 0, Valor en Columna 1)
-        for (let i = startIndex; i < dataMatrix.length; i++) {
-            const row = dataMatrix[i];
-            const key = row[0] ? row[0].trim().toUpperCase() : null; // Columna I (Moneda)
-            const value = row[1] || ''; // Columna J (Valor)
-
-            if (key) {
-                // Normalizar la coma a punto decimal antes de guardarla en el objeto
-                ratesObject[key] = value.replace(',', '.'); 
-            }
+        if (keys.length === 0 || values.length === 0) {
+             return res.json([]);
         }
         
-        // 3. Devolver un array con el objeto final (ej: [{COP: "14.86", USD: "241.08", ...}])
+        // 2. Procesar la matriz de 2 filas
+        keys.forEach((key, index) => {
+            const trimmedKey = key ? key.trim().toUpperCase() : null;
+            const value = values[index] || '';
+
+            if (trimmedKey) {
+                // Normalizar la coma a punto decimal antes de guardarla en el objeto
+                ratesObject[trimmedKey] = value.replace(',', '.'); 
+            }
+        });
+        
+        // 3. Devolver un array con el objeto final 
+        // (ej: [{COP_VES: "14.86", USD_VES: "241.08", ...}])
         res.json([ratesObject]);
 
     } catch (error) {
@@ -309,7 +307,7 @@ app.get('/convertir', async (req, res) => {
         const latestRowArray = await getSheetData(HOJA_PRECIOS, RANGO_PRECIOS);
 
         if (!Array.isArray(latestRowArray) || latestRowArray.length === 0) {
-             return res.status(503).json({ error: "No se pudieron obtener datos de tasas promedio recientes." });
+            return res.status(503).json({ error: "No se pudieron obtener datos de tasas promedio recientes." });
         }
 
         const latestRow = latestRowArray[latestRowArray.length - 1]; // Último objeto
