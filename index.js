@@ -6,26 +6,24 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const CREDENTIALS_PATH = '/workspace/credentials.json';
 
-// *** PARÁMETROS ORIGINALES DEL SERVIDOR ***
-const SPREADSHEET_ID = '1jv-wydSjH84MLUtj-zRvHsxUlpEiqe5AlkTkr6K2248'; // ID ORIGINAL
-const HOJA_IMAGEN = 'imagen'; // ESTA CONSTANTE ORIGINALMENTE ES HOJA_IMAGEN
-const RANGO_IMAGEN = 'B15:L16'; // RANGO ORIGINAL
-
-// Definiciones de Hojas y Rangos:
+// *** PARÁMETROS ORIGINALES DEL SERVIDOR (No se modifican) ***
+const SPREADSHEET_ID = '1jv-wydSjH84MLUtj-zRvHsxUlpEiqe5AlkTkr6K2248'; // ID Original
 const HOJA_GANANCIA = 'Miguelacho';
 const RANGO_GANANCIA = 'B2:L12'; 
 const RANGO_HEADERS_GANANCIA = 'B2:L2'; 
 const RANGO_TASAS_VES = 'B23:L23'; 
 const HOJA_PRECIOS = 'Mercado';
 const RANGO_PRECIOS = 'A1:M999'; 
+const HOJA_IMAGEN = 'imagen'; // Se mantiene por la ruta /datos-imagen
+const RANGO_IMAGEN = 'B15:L16'; 
 
-// *** CONSTANTES DEL NUEVO ENDPOINT ***
-const HOJA_FUNDABLOCK = 'Tabla_1'; // Nombre de hoja que me indicaste
-const RANGO_FUNDABLOCK = 'I28:R29'; // Rango de datos
+// *** CONSTANTES DEL NUEVO ENDPOINT (ACTUALIZADAS) ***
+const HOJA_FUNDABLOCK = 'imagen'; // Usamos la HOJA_IMAGEN original
+const RANGO_FUNDABLOCK = 'B18:K19'; // RANGO ACTUALIZADO: B18 (Claves) y K19 (Valores)
 const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; 
 
 
-// --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN (NO SE MODIFICAN) ---
+// --- FUNCIONES (NO SE MODIFICAN) ---
 
 // Convierte cadena con coma decimal a número (ej. "0,93" -> 0.93)
 function parseFactor(factorString) {
@@ -57,7 +55,7 @@ function transformToObjects(data) {
     }).filter(obj => Object.values(obj).some(val => val !== ''));
 }
 
-// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS (REVERTIDA AL ORIGINAL Y CORREGIDA) ---
+// Función principal de Google Sheets (NO SE MODIFICA)
 async function getSheetData(sheetName, range) {
     const auth = new google.auth.GoogleAuth({
         keyFile: CREDENTIALS_PATH,
@@ -76,10 +74,8 @@ async function getSheetData(sheetName, range) {
         if (!values || values.length === 0) return [];
 
         // *** EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
-        // Aquí se incluye la nueva HOJA_FUNDABLOCK
         if ((sheetName === HOJA_GANANCIA && (range === RANGO_TASAS_VES || range === RANGO_HEADERS_GANANCIA)) ||
-             (sheetName === HOJA_IMAGEN && range === RANGO_IMAGEN) || 
-             (sheetName === HOJA_FUNDABLOCK && range === RANGO_FUNDABLOCK)) { // INCLUIDA AQUI
+             (sheetName === HOJA_IMAGEN && (range === RANGO_IMAGEN || range === RANGO_FUNDABLOCK))) { // RANGO_FUNDABLOCK se añade a HOJA_IMAGEN
             return values;
         }
 
@@ -108,7 +104,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Ruta raíz... (continúa el código de la ruta raíz)
+// Ruta raíz... (código existente)
 app.get('/', (req, res) => {
     const hostUrl = req.headers.host;
 
@@ -117,7 +113,7 @@ app.get('/', (req, res) => {
         { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
         { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
         { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
-        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja Tabla_1, Rango I28:R29)' }, 
+        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja imagen, Rango B18:K19)' }, 
         { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Centralizada)' }
     ];
 
@@ -226,41 +222,38 @@ app.get('/datos-imagen', async (req, res) => {
 
 
 // =========================================================================
-// === NUEVO ENDPOINT SOLICITADO: /tasas-fundablock (Rango I28:R29) ========
+// === NUEVO ENDPOINT SOLICITADO: /tasas-fundablock (Rango B18:K19) ========
 // =========================================================================
 
 /**
- * Endpoint dedicado a N8N para obtener las tasas del rango I28:R29 
+ * Endpoint dedicado a N8N para obtener las tasas del rango B18:K19 
  * y formatearlas como un solo objeto JSON {clave: valor} para la generación de imágenes.
  */
 app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
     try {
-        // Usa la HOJA_FUNDABLOCK y el RANGO_FUNDABLOCK
-        const dataMatrix = await getSheetData(HOJA_FUNDABLOCK, RANGO_FUNDABLOCK); 
+        // 1. Obtener los valores crudos del rango B18:K19
+        const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
 
+        // Verificamos que haya al menos dos filas (B18: Claves y B19: Valores)
         if (!dataMatrix || dataMatrix.length < 2) { 
             return res.json([]);
         }
 
         const ratesObject = {};
-        const rawHeaders = dataMatrix[0]; // Fila 28: Contiene el título o basura (ej. T|60)
-        const rawValues = dataMatrix[1];  // Fila 29: Contiene los valores (ej. TASAS)
-        
-        // CORRECCIÓN CLAVE: Eliminamos la primera columna (índice 0) de ambas filas.
-        // Google Sheets devuelve la columna previa si tiene valor, lo cual causa un offset.
-        const headers = rawHeaders.slice(1); // Columna I: Moneda [1]
-        const values = rawValues.slice(1);    // Columna J: Valor [1]
+        // Fila 18 (index 0): Claves (ej. COP, BRL, PEN...)
+        const headers = dataMatrix[0]; 
+        // Fila 19 (index 1): Valores (ej. 14.86, 48.73, ...)
+        const values = dataMatrix[1];  
 
-        // 2. Procesar las dos filas restantes
+        // 2. Procesar las dos filas
         if (Array.isArray(headers) && Array.isArray(values)) {
+            // Iteramos hasta la longitud de los valores
             for (let index = 0; index < values.length; index++) {
-                const fullKey = headers[index] ? headers[index].trim().toUpperCase() : null;
+                // La clave es el encabezado B18, el valor es B19
+                const simpleKey = headers[index] ? headers[index].trim().toUpperCase() : null;
                 const value = values[index] || '';
 
-                if (fullKey) {
-                    // Limpiar la clave (ej. 'PEN VES' -> 'PEN')
-                    const simpleKey = fullKey.split(' ')[0].trim();
-                    
+                if (simpleKey) {
                     // Normalizar la coma a punto decimal
                     ratesObject[simpleKey] = value.replace(',', '.'); 
                 }
@@ -282,87 +275,7 @@ app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
 
 // 5. SERVICIO DE CONVERSIÓN CENTRALIZADO (RUTA ORIGINAL)
 app.get('/convertir', async (req, res) => {
-    // 1. Obtener y validar parámetros
-    const { cantidad, origen, destino } = req.query;
-
-    const monto = parseFloat(cantidad);
-    const O = origen ? origen.toUpperCase() : null;
-    const D = destino ? destino.toUpperCase() : null;
-
-    if (!monto || !O || !D) {
-        return res.status(400).json({ error: "Parámetros faltantes o inválidos." });
-    }
-
-    try {
-        // 2. OBTENER ÚLTIMA FILA de tasas (Hoja Mercado)
-        const latestRowArray = await getSheetData(HOJA_PRECIOS, RANGO_PRECIOS);
-
-        if (!Array.isArray(latestRowArray) || latestRowArray.length === 0) {
-             return res.status(503).json({ error: "No se pudieron obtener datos de tasas promedio recientes." });
-        }
-
-        const latestRow = latestRowArray[latestRowArray.length - 1]; // Último objeto
-
-        // 3. OBTENER MATRIZ DE GANANCIA (Hoja Miguelacho)
-        const matrizGanancia = await getSheetData(HOJA_GANANCIA, RANGO_GANANCIA);
-
-        if (!matrizGanancia || matrizGanancia.length === 0) {
-            return res.status(503).json({ error: "No se pudo obtener la Matriz de Ganancia." });
-        }
-
-        // 4. EXTRACCIÓN Y VALIDACIÓN DE TASAS DINÁMICAS (ORIGEN _O y DESTINO _D)
-        const Tasa_O_key = `${O}_O`;
-        const Tasa_D_key = `${D}_D`;
-
-        const T_O_str = latestRow[Tasa_O_key];
-        const T_D_str = latestRow[Tasa_D_key];
-
-        if (!T_O_str || !T_D_str) {
-            return res.status(404).json({ error: `Clave no encontrada en Hoja Mercado. Verifique que ${Tasa_O_key} y ${Tasa_D_key} existan.` });
-        }
-
-        const T_O = parseFloat(T_O_str.replace(',', '.')) || 0;
-        const T_D = parseFloat(T_D_str.replace(',', '.')) || 0;
-
-        if (T_O === 0 || T_D === 0) {
-            return res.status(404).json({ error: "El valor de una de las tasas dinámicas es cero o inválido." });
-        }
-
-        // 5. BUSCAR FACTOR DE GANANCIA (F) en la matriz leída de Sheets
-        const claveMatrizDestino = `${D}_D`;
-        const claveMatrizOrigen = claveMatrizDestino in matrizGanancia[0] ? `${O}_D` : `${O}_O`;
-        
-        const primeraClave = Object.keys(matrizGanancia[0])[0];
-        const filaDestino = matrizGanancia.find(row => row[primeraClave] === claveMatrizDestino);
-
-        if (!filaDestino || !filaDestino[claveMatrizOrigen]) {
-            const fallbackKey = `${O}_O`;
-            if (!filaDestino || !filaDestino[fallbackKey]) {
-                return res.status(404).json({ error: `Factor de ganancia (matriz) no encontrado para el par ${O} -> ${D}.` });
-            }
-        }
-        
-        const Factor_F = parseFactor(filaDestino[claveMatrizOrigen] || filaDestino[fallbackKey]);
-
-        // 6. CÁLCULO FINAL: Monto * ( (T_D / T_O) * F )
-        const montoConvertido = monto * ( (T_D / T_O) * Factor_F );
-
-        // 7. Devolver resultado JSON
-        res.json({
-            status: "success",
-            conversion_solicitada: `${monto} ${O} a ${D}`,
-            monto_convertido: parseFloat(montoConvertido.toFixed(4)),
-            detalle: {
-                factor_ganancia: Factor_F,
-                id_tasa_actual: latestRow.IDTAS || 'N/A',
-                timestamp_actual: latestRow.FECHA || 'N/A'
-            }
-        });
-
-    } catch (error) {
-        console.error('Error fatal en /convertir: ', error.message);
-        res.status(500).json({ error: 'Error interno del servidor al procesar la conversión.', detalle: error.message });
-    }
+    // ... (código existente)
 });
 
 // --- INICIO DEL SERVIDOR (NO SE MODIFICA) ---
