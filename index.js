@@ -20,9 +20,8 @@ const HOJA_IMAGEN = 'imagen';
 const RANGO_IMAGEN = 'B15:L16';
 
 // *** CONSTANTES DEL NUEVO ENDPOINT ***
-// Nota: Deberías modificar el rango a I28:J36 en el futuro para saltar la fila 27 (encabezado)
-const RANGO_FUNDABLOCK = 'I27:J36'; // Rango solicitado (I27:J36)
-const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; // Ruta solicitada
+const RANGO_FUNDABLOCK = 'I28:R29'; // RANGO ACTUALIZADO: I28 (Claves) y R29 (Valores)
+const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; 
 
 // --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
 
@@ -57,8 +56,7 @@ function transformToObjects(data) {
     }).filter(obj => Object.values(obj).some(val => val !== ''));
 }
 
-// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS (MODIFICADA) ---
-// Retorna valores crudos para rangos de procesamiento especial 
+// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS ---
 async function getSheetData(sheetName, range) {
     const auth = new google.auth.GoogleAuth({
         keyFile: CREDENTIALS_PATH,
@@ -77,7 +75,6 @@ async function getSheetData(sheetName, range) {
         if (!values || values.length === 0) return [];
 
         // *** EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
-        // Se añade la excepción para el NUEVO RANGO_FUNDABLOCK
         if ((sheetName === HOJA_GANANCIA && (range === RANGO_TASAS_VES || range === RANGO_HEADERS_GANANCIA)) ||
              (sheetName === HOJA_IMAGEN && (range === RANGO_IMAGEN || range === RANGO_FUNDABLOCK))) {
             return values;
@@ -117,7 +114,7 @@ app.get('/', (req, res) => {
         { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
         { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
         { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
-        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja Imagen, Rango I27:J36)' }, // NUEVA RUTA
+        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja Imagen, Rango I28:R29)' }, 
         { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Centralizada)' }
     ];
 
@@ -237,48 +234,43 @@ app.get('/datos-imagen', async (req, res) => {
 
 
 // =========================================================================
-// === NUEVO ENDPOINT SOLICITADO: /tasas-fundablock (Rango I27:J36) ========
+// === NUEVO ENDPOINT SOLICITADO: /tasas-fundablock (Rango I28:R29) ========
 // =========================================================================
 
 /**
- * Endpoint dedicado a N8N para obtener las tasas del rango I27:J36
+ * Endpoint dedicado a N8N para obtener las tasas del rango I28:R29 
  * y formatearlas como un solo objeto JSON {clave: valor} para la generación de imágenes.
  */
 app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
     try {
-        // 1. Obtener los valores crudos del rango I27:J36
-        // NOTA: Si la fila 27 contiene el título, el código debe saltarlo en n8n
-        // o el rango debe modificarse a I28:J36 en la constante (lo que se sugiere)
+        // 1. Obtener los valores crudos del rango I28:R29
         const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
 
-        if (!dataMatrix || dataMatrix.length === 0) {
+        if (!dataMatrix || dataMatrix.length < 2) { // Verificamos que al menos haya 2 filas (claves y valores)
             return res.json([]);
         }
 
         const ratesObject = {};
-        let startIndex = 0; // Se asume que los datos comienzan en la fila 0 (I27)
+        const headers = dataMatrix[0]; // Fila 28: PEN VES, PEN COP, etc.
+        const values = dataMatrix[1];  // Fila 29: 14.90, 49.06, etc.
 
-        // Si la primera fila no tiene un código de moneda válido, la saltamos.
-        // Se puede hacer esta verificación para manejar encabezados sin romper la regla de no modificar nada.
-        const firstKey = dataMatrix[0] && dataMatrix[0][0] ? dataMatrix[0][0].trim().toUpperCase() : null;
-        if (firstKey && firstKey.length > 3 && isNaN(parseFloat(firstKey.replace(',', '.')))) {
-            // Si la primera celda es una palabra larga (ej. "MONEDA" o "CODIGO"), la saltamos.
-            startIndex = 1;
-        }
-
-        // 2. Procesar la matriz de 2 columnas (Moneda en Columna 0, Valor en Columna 1)
-        for (let i = startIndex; i < dataMatrix.length; i++) {
-            const row = dataMatrix[i];
-            const key = row[0] ? row[0].trim().toUpperCase() : null; // Columna I (Moneda)
-            const value = row[1] || ''; // Columna J (Valor)
-
-            if (key) {
-                // Normalizar la coma a punto decimal antes de guardarla en el objeto
-                ratesObject[key] = value.replace(',', '.'); 
-            }
+        // 2. Procesar las dos filas (Header [0] y Values [1])
+        if (Array.isArray(headers) && Array.isArray(values)) {
+            headers.forEach((header, index) => {
+                const fullKey = header ? header.trim().toUpperCase() : null;
+                const value = values[index] || '';
+                
+                if (fullKey) {
+                    // Limpiar la clave (ej. 'PEN VES' -> 'PEN')
+                    const simpleKey = fullKey.split(' ')[0].trim();
+                    
+                    // Normalizar la coma a punto decimal
+                    ratesObject[simpleKey] = value.replace(',', '.'); 
+                }
+            });
         }
         
-        // 3. Devolver un array con el objeto final (ej: [{COP: "14.86", USD: "241.08", ...}])
+        // 3. Devolver un array con el objeto final (ej: [{PEN: "14.90", USD: "78.93", ...}])
         res.json([ratesObject]);
 
     } catch (error) {
