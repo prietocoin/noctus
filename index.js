@@ -20,7 +20,8 @@ const HOJA_IMAGEN = 'imagen';
 const RANGO_IMAGEN = 'B15:L16';
 
 // *** CONSTANTES DEL NUEVO ENDPOINT ***
-const RANGO_FUNDABLOCK = 'I28:R29'; // RANGO ACTUALIZADO: I28 (Claves) y R29 (Valores)
+// NOTA: Este rango se mantiene, pero el código lo procesa para corregir el offset de la Columna H
+const RANGO_FUNDABLOCK = 'I28:R29'; // Rango que incluye 10 columnas (I a R)
 const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; 
 
 // --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
@@ -246,18 +247,27 @@ app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
         // 1. Obtener los valores crudos del rango I28:R29
         const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
 
-        if (!dataMatrix || dataMatrix.length < 2) { // Verificamos que al menos haya 2 filas (claves y valores)
+        // CRÍTICO: El rango I28:R29 contiene dos filas (encabezado y valor).
+        // Google Sheets devuelve [ [T|60, PEN VES, ...], [TASAS, 14.90, ...] ]
+        if (!dataMatrix || dataMatrix.length < 2) { 
             return res.json([]);
         }
 
         const ratesObject = {};
-        const headers = dataMatrix[0]; // Fila 28: PEN VES, PEN COP, etc.
-        const values = dataMatrix[1];  // Fila 29: 14.90, 49.06, etc.
+        const rawHeaders = dataMatrix[0]; // Fila 28: [T|60, PEN VES, ...]
+        const rawValues = dataMatrix[1];  // Fila 29: [TASAS, 14.90, ...]
+        
+        // CORRECCIÓN CRÍTICA: La Columna H (index 0) y el valor de la Columna I (index 0) son basura o títulos.
+        // Slice(1) para eliminar el primer elemento (T|60) y Slice(1) para el valor de 'TASAS'.
+        const headers = rawHeaders.slice(1);
+        const values = rawValues.slice(1);
 
-        // 2. Procesar las dos filas (Header [0] y Values [1])
+        // 2. Procesar las dos filas (Claves y Valores)
         if (Array.isArray(headers) && Array.isArray(values)) {
-            headers.forEach((header, index) => {
-                const fullKey = header ? header.trim().toUpperCase() : null;
+            // Iteramos hasta la longitud de los valores
+            for (let index = 0; index < values.length; index++) {
+                // Obtenemos la clave (ej. "PEN VES") y la separamos a "PEN"
+                const fullKey = headers[index] ? headers[index].trim().toUpperCase() : null;
                 const value = values[index] || '';
                 
                 if (fullKey) {
@@ -267,7 +277,7 @@ app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
                     // Normalizar la coma a punto decimal
                     ratesObject[simpleKey] = value.replace(',', '.'); 
                 }
-            });
+            }
         }
         
         // 3. Devolver un array con el objeto final (ej: [{PEN: "14.90", USD: "78.93", ...}])
