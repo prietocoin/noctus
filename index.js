@@ -24,8 +24,7 @@ async function generateTasaImage(payload) {
     
     // Definiciones de estilo
     const FINAL_COLOR = "rgb(0, 0, 0)"; // NEGRO
-    // Valor por defecto de la fuente si el campo 'size' falta en n8n
-    const FONT_SIZE_FALLBACK = 72; 
+    const FONT_SIZE_FALLBACK = 72; // Valor por defecto
 
     let svgLayers = [];
 
@@ -37,14 +36,14 @@ async function generateTasaImage(payload) {
     for (const [clave_plantilla, coord] of Object.entries(coordenadas)) {
         const valor = tasas[clave_plantilla] || "N/A"; 
 
-        // AJUSTE CRÍTICO: Extraemos el tamaño directamente del objeto 'coord',
-        // que es donde n8n lo envía (coord.size).
+        // AJUSTE CRÍTICO: Usamos 'coord.size' directamente, con el FALLBACK.
+        // Esto garantiza que el valor que envías desde n8n (ej. 44 o 85) se use.
         const fontSizeForText = coord.size || FONT_SIZE_FALLBACK; 
 
         // SINTAXIS FINAL: Oswald Bold
         const svgText = '<svg width="' + SVG_WIDTH + '" height="' + SVG_HEIGHT + '">' + 
             '<text x="' + coord.x + '" y="' + coord.y + '" ' + 
-            'font-family="Oswald Bold" font-weight="bold" font-size="' + fontSizeForText + '" ' + 
+            'font-family="Oswald Bold" font-weight="bold" font-size="' + fontSizeForText + '" ' + // <<<-- CORREGIDO
             'fill="' + FINAL_COLOR + '" text-anchor="end">' + 
             valor +
             '</text></svg>';
