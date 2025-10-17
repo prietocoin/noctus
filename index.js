@@ -5,26 +5,27 @@ const app = express();
 // --- CONFIGURACIÓN DE ENTORNO ---
 const PORT = process.env.PORT || 8080;
 const CREDENTIALS_PATH = '/workspace/credentials.json';
-const SPREADSHEET_ID = '1jv-wydSjH84MLUtj-zRvHsxUlpEiqe5AlkTkr6K2248';
+
+// *** PARÁMETROS ORIGINALES DEL SERVIDOR ***
+const SPREADSHEET_ID = '1jv-wydSjH84MLUtj-zRvHsxUlpEiqe5AlkTkr6K2248'; // ID ORIGINAL
+const HOJA_IMAGEN = 'imagen'; // ESTA CONSTANTE ORIGINALMENTE ES HOJA_IMAGEN
+const RANGO_IMAGEN = 'B15:L16'; // RANGO ORIGINAL
 
 // Definiciones de Hojas y Rangos:
 const HOJA_GANANCIA = 'Miguelacho';
-const RANGO_GANANCIA = 'B2:L12'; // Matriz de cruce de porcentajes
-const RANGO_HEADERS_GANANCIA = 'B2:L2'; // Encabezados para TASAS-VES
+const RANGO_GANANCIA = 'B2:L12'; 
+const RANGO_HEADERS_GANANCIA = 'B2:L2'; 
 const RANGO_TASAS_VES = 'B23:L23'; 
 const HOJA_PRECIOS = 'Mercado';
-const RANGO_PRECIOS = 'A1:M999'; // Precios promedios
-
-// *** CONSTANTES SOLICITADAS ***
-const HOJA_IMAGEN = 'imagen';
-const RANGO_IMAGEN = 'B15:L16';
+const RANGO_PRECIOS = 'A1:M999'; 
 
 // *** CONSTANTES DEL NUEVO ENDPOINT ***
-// RANGO ACTUALIZADO Y DEFINITIVO
-const RANGO_FUNDABLOCK = 'I28:R29'; 
+const HOJA_FUNDABLOCK = 'Tabla_1'; // Nombre de hoja que me indicaste
+const RANGO_FUNDABLOCK = 'I28:R29'; // Rango de datos
 const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; 
 
-// --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
+
+// --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN (NO SE MODIFICAN) ---
 
 // Convierte cadena con coma decimal a número (ej. "0,93" -> 0.93)
 function parseFactor(factorString) {
@@ -32,17 +33,16 @@ function parseFactor(factorString) {
     return parseFloat(factorString.replace(',', '.')) || 1.0;
 }
 
-// Transforma la respuesta de Sheets en un array de objetos JSON
+// Transforma la respuesta de Sheets en un array de objetos JSON (NO SE MODIFICA)
 function transformToObjects(data) {
     if (!data || data.length === 0) return [];
     
-    // Si la primera fila contiene solo valores vacíos, la salta.
     let headerRowIndex = 0;
     while (headerRowIndex < data.length && data[headerRowIndex].filter(String).length === 0) {
         headerRowIndex++;
     }
     
-    if (headerRowIndex >= data.length) return []; // No hay datos
+    if (headerRowIndex >= data.length) return []; 
     
     const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
     const rows = data.slice(headerRowIndex + 1);
@@ -57,7 +57,7 @@ function transformToObjects(data) {
     }).filter(obj => Object.values(obj).some(val => val !== ''));
 }
 
-// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS ---
+// --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS (REVERTIDA AL ORIGINAL Y CORREGIDA) ---
 async function getSheetData(sheetName, range) {
     const auth = new google.auth.GoogleAuth({
         keyFile: CREDENTIALS_PATH,
@@ -76,8 +76,10 @@ async function getSheetData(sheetName, range) {
         if (!values || values.length === 0) return [];
 
         // *** EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
+        // Aquí se incluye la nueva HOJA_FUNDABLOCK
         if ((sheetName === HOJA_GANANCIA && (range === RANGO_TASAS_VES || range === RANGO_HEADERS_GANANCIA)) ||
-             (sheetName === HOJA_IMAGEN && (range === RANGO_IMAGEN || range === RANGO_FUNDABLOCK))) {
+             (sheetName === HOJA_IMAGEN && range === RANGO_IMAGEN) || 
+             (sheetName === HOJA_FUNDABLOCK && range === RANGO_FUNDABLOCK)) { // INCLUIDA AQUI
             return values;
         }
 
@@ -99,14 +101,14 @@ async function getSheetData(sheetName, range) {
     }
 }
 
-// --- MIDDLEWARE Y RUTA RAÍZ ---
+// --- MIDDLEWARE Y RUTA RAÍZ (NO SE MODIFICAN) ---
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
     next();
 });
 
-// Ruta raíz que devuelve HTML para el chequeo de salud y documentación
+// Ruta raíz... (continúa el código de la ruta raíz)
 app.get('/', (req, res) => {
     const hostUrl = req.headers.host;
 
@@ -115,7 +117,7 @@ app.get('/', (req, res) => {
         { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
         { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
         { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
-        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja Imagen, Rango I28:R29)' }, 
+        { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'NUEVO: Tasas para FUNDABLOCK (Hoja Tabla_1, Rango I28:R29)' }, 
         { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Centralizada)' }
     ];
 
@@ -163,23 +165,18 @@ app.get('/', (req, res) => {
     res.send(htmlContent);
 });
 
-// --- NUEVAS RUTAS DE DATOS CRUDOS PARA MIGUELACHO (API ESCLAVA) ---
+// --- RUTAS DE DATOS ORIGINALES (NO SE MODIFICAN) ---
 
-// 1. Obtener la última fila de Precios Promedio (Hoja Mercado)
 app.get('/tasas-promedio', async (req, res) => {
     try {
         let data = await getSheetData(HOJA_PRECIOS, RANGO_PRECIOS);
-        res.json(data); // Devolverá el array con el último objeto
+        res.json(data);
     } catch (error) {
         console.error('Error en /tasas-promedio: ', error.message);
-        res.status(500).json({
-            error: 'Error al obtener datos de Tasas Promedio.',
-            detalle: error.message
-        });
+        res.status(500).json({ error: 'Error al obtener datos de Tasas Promedio.', detalle: error.message });
     }
 });
 
-// 2. Obtener la Matriz de Ganancia (Hoja Miguelacho)
 app.get('/matriz-ganancia', async (req, res) => {
     try {
         const data = await getSheetData(HOJA_GANANCIA, RANGO_GANANCIA);
@@ -190,10 +187,8 @@ app.get('/matriz-ganancia', async (req, res) => {
     }
 });
 
-// *** 3. TASA VES (RUTA CORREGIDA PARA DEVOLVER EL OBJETO) ***
 app.get('/tasas-ves', async (req, res) => {
     try {
-        // Leemos los encabezados de B2:L2 y los valores de B23:L23
         const headersArray = await getSheetData(HOJA_GANANCIA, RANGO_HEADERS_GANANCIA); 
         const valuesArray = await getSheetData(HOJA_GANANCIA, RANGO_TASAS_VES); 
 
@@ -201,19 +196,16 @@ app.get('/tasas-ves', async (req, res) => {
              return res.json([]);
         }
         
-        // Asumimos que los valores están en la fila 0 de cada array devuelto por getSheetData
         const headers = headersArray[0];
         const values = valuesArray[0];
             
         const resultObject = {};
         if (Array.isArray(headers) && Array.isArray(values)) {
             headers.forEach((header, index) => {
-                // Usamos el encabezado de B2:L2 como clave para los datos de B23:L23
                 resultObject[header.trim() || `Columna${index}`] = values[index] || '';
             });
         }
         
-        // Devolverá un array con el objeto de la fila 23 (ej: [{USD: "0.82", COP: "0.87", ...}])
         res.json([resultObject]);
 
     } catch (error) {
@@ -222,7 +214,6 @@ app.get('/tasas-ves', async (req, res) => {
     }
 });
 
-// 4. Obtener Datos de Imagen (Hoja Imagen, Rango B15:L16)
 app.get('/datos-imagen', async (req, res) => {
     try {
         const data = await getSheetData(HOJA_IMAGEN, RANGO_IMAGEN);
@@ -244,28 +235,24 @@ app.get('/datos-imagen', async (req, res) => {
  */
 app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
     try {
-        // 1. Obtener los valores crudos del rango I28:R29
-        const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
+        // Usa la HOJA_FUNDABLOCK y el RANGO_FUNDABLOCK
+        const dataMatrix = await getSheetData(HOJA_FUNDABLOCK, RANGO_FUNDABLOCK); 
 
-        // CRÍTICO: El rango I28:R29 contiene dos filas (encabezado y valor).
-        // Google Sheets devuelve [ [T|60, PEN VES, ...], [TASAS, 14.90, ...] ]
-        // Si no hay 2 filas, significa que la lectura falló o las celdas están vacías.
         if (!dataMatrix || dataMatrix.length < 2) { 
             return res.json([]);
         }
 
         const ratesObject = {};
-        const rawHeaders = dataMatrix[0]; // Fila 28: Contiene la primera columna basura
-        const rawValues = dataMatrix[1];  // Fila 29: Contiene la primera columna basura
+        const rawHeaders = dataMatrix[0]; // Fila 28: Contiene el título o basura (ej. T|60)
+        const rawValues = dataMatrix[1];  // Fila 29: Contiene los valores (ej. TASAS)
         
-        // CORRECCIÓN CRÍTICA: Eliminamos la primera columna (T|60 y TASAS) para que el índice 0 sea PEN VES.
-        // Usamos slice(1) en el lado del servidor para eliminar la columna de título de ambas filas.
-        const headers = rawHeaders.slice(1);
-        const values = rawValues.slice(1);
+        // CORRECCIÓN CLAVE: Eliminamos la primera columna (índice 0) de ambas filas.
+        // Google Sheets devuelve la columna previa si tiene valor, lo cual causa un offset.
+        const headers = rawHeaders.slice(1); // Columna I: Moneda [1]
+        const values = rawValues.slice(1);    // Columna J: Valor [1]
 
         // 2. Procesar las dos filas restantes
         if (Array.isArray(headers) && Array.isArray(values)) {
-            // Iteramos solo hasta la longitud de los valores disponibles
             for (let index = 0; index < values.length; index++) {
                 const fullKey = headers[index] ? headers[index].trim().toUpperCase() : null;
                 const value = values[index] || '';
@@ -378,13 +365,13 @@ app.get('/convertir', async (req, res) => {
     }
 });
 
-// --- INICIO DEL SERVIDOR ---
+// --- INICIO DEL SERVIDOR (NO SE MODIFICA) ---
 app.listen(PORT, () => {
     console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
     console.log(`Acceso API de prueba: http://localhost:${PORT}/`);
 });
 
-// --- MANEJADOR DE APAGADO ELEGANTE ---
+// --- MANEJADOR DE APAGADO ELEGANTE (NO SE MODIFICA) ---
 process.on('SIGTERM', () => {
     console.log('[SHUTDOWN] Señal SIGTERM recibida. Terminando proceso de NOCTUS...');
     process.exit(0);
