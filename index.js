@@ -5,6 +5,7 @@ const fs = require('fs');
 const app = express();
 const PORT = 3000; 
 
+// Aumentamos el límite de cuerpo para aceptar buffers de imágenes grandes
 app.use(express.json({ limit: '10mb' })); 
 
 // --- FUNCIÓN DE GENERACIÓN DE IMAGEN ---
@@ -23,8 +24,7 @@ async function generateTasaImage(payload) {
     
     // Definiciones de estilo
     const FINAL_COLOR = "rgb(0, 0, 0)"; // NEGRO
-    // Definimos el fallback AQUÍ, para usarlo solo si 'coord.size' falta.
-    const FONT_SIZE_FALLBACK = 90; 
+    const FONT_SIZE_FALLBACK = 72; // Valor por defecto
 
     let svgLayers = [];
 
@@ -36,14 +36,13 @@ async function generateTasaImage(payload) {
     for (const [clave_plantilla, coord] of Object.entries(coordenadas)) {
         const valor = tasas[clave_plantilla] || "N/A"; 
 
-        // AJUSTE CRÍTICO: Se extrae el tamaño dinámico aquí. 
-        // Si pones size: 300 en n8n, fontSizeForText será 300.
+        // AJUSTE CRÍTICO: Esta línea extrae el tamaño. Si pones 10 en n8n, fontSizeForText es 10.
         const fontSizeForText = coord.size || FONT_SIZE_FALLBACK; 
 
         // SINTAXIS FINAL: Oswald Bold
         const svgText = '<svg width="' + SVG_WIDTH + '" height="' + SVG_HEIGHT + '">' + 
             '<text x="' + coord.x + '" y="' + coord.y + '" ' + 
-            'font-family="Oswald Bold" font-weight="bold" font-size="' + fontSizeForText + '" ' + // <<<-- USA EL VALOR DINÁMICO
+            'font-family="Oswald Bold" font-weight="bold" font-size="' + fontSizeForText + '" ' + 
             'fill="' + FINAL_COLOR + '" text-anchor="end">' + 
             valor +
             '</text></svg>';
