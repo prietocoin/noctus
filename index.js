@@ -24,7 +24,7 @@ const RANGO_GANANCIA = 'B2:L12'; // Matriz de cruce de porcentajes
 
 const RANGO_HEADERS_GANANCIA = 'B2:L2'; // Encabezados para TASAS-VES
 
-const RANGO_TASAS_VES = 'B23:L23'; 
+const RANGO_TASAS_VES = 'B23:W23'; 
 
 const HOJA_PRECIOS = 'Mercado';
 
@@ -240,7 +240,7 @@ app.get('/', (req, res) => {
 
         { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
 
-        { path: NUEVA_RUTA_TASAS_COP_VES, description: 'NUEVO: Tasas COP/VES (Hoja Imagen, Rango B21:L22)' }, // NUEVA RUTA
+        { path: NUEVA_RUTA_TASAS_COP_VES, description: 'NUEVO: Tasas COP/VES (Hoja Imagen, Rango B21:W22)' }, // NUEVA RUTA
 
         { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
 
@@ -394,7 +394,7 @@ app.get('/tasas-ves', async (req, res) => {
 
     try {
 
-        // Leemos los encabezados de B2:L2 y los valores de B23:L23
+        // Leemos los encabezados de B2:L2 y los valores de B23:W23
 
         const headersArray = await getSheetData(HOJA_GANANCIA, RANGO_HEADERS_GANANCIA); 
 
@@ -613,5 +613,6 @@ process.on('SIGTERM', () => {
     process.exit(0);
 
 });
+
 
 
