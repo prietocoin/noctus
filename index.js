@@ -50,7 +50,7 @@ const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; // Ruta anterior
 
 // *** NUEVAS CONSTANTES PARA EL ENDPOINT /tasas-cop_ves ***
 
-const RANGO_TASAS_COP_VES = 'B21:L22';
+const RANGO_TASAS_COP_VES = 'B21:W22';
 
 const NUEVA_RUTA_TASAS_COP_VES = '/tasas-cop_ves';
 
@@ -613,4 +613,5 @@ process.on('SIGTERM', () => {
     process.exit(0);
 
 });
+
 
