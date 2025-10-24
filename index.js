@@ -23,9 +23,8 @@ const RANGO_IMAGEN = 'B15:L16';
 const RANGO_FUNDABLOCK = 'B18:K19'; // Rango de la ruta anterior
 const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; // Ruta anterior
 
-// *** NUEVAS CONSTANTES PARA EL ENDPOINT /tasas-cop_ves ***
-// *** 1. MODIFICACIÓN SOLICITADA ***
-const RANGO_TASAS_COP_VES = 'B21:L23'; // <--- RANGO ACTUALIZADO
+// *** NUEVAS CONSTANTES PARA EL ENDPOINT /tasas-cop_ves (MODIFICADO) ***
+const RANGO_TASAS_COP_VES = 'B21:L23'; // RANGO MODIFICADO
 const NUEVA_RUTA_TASAS_COP_VES = '/tasas-cop_ves';
 
 // *** NUEVAS CONSTANTES PARA EL ENDPOINT /datos-b24_l25 ***
@@ -44,7 +43,6 @@ function parseFactor(factorString) {
 function transformToObjects(data) {
     if (!data || data.length === 0) return [];
     
-    // Si la primera fila contiene solo valores vacíos, la salta.
     let headerRowIndex = 0;
     while (headerRowIndex < data.length && data[headerRowIndex].filter(String).length === 0) {
         headerRowIndex++;
@@ -52,25 +50,28 @@ function transformToObjects(data) {
     
     if (headerRowIndex >= data.length) return []; // No hay datos
     
-    const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
+    // *** CORRECCIÓN DE BUG: Asegurar que los headers sean strings ***
+    const headers = data[headerRowIndex].map(h => h ? String(h).trim() : '');
     const rows = data.slice(headerRowIndex + 1);
 
     return rows.map(row => {
         const obj = {};
         headers.forEach((header, index) => {
             const key = header;
-            obj[key] = row[index] || '';
+            // Asegurarnos de que la clave no esté vacía si el header lo estaba
+            if (key) {
+                 obj[key] = row[index] || '';
+            }
         });
         return obj;
     }).filter(obj => Object.values(obj).some(val => val !== ''));
 }
 
 // --- FUNCIÓN PRINCIPAL DE GOOGLE SHEETS (MODIFICADA) ---
-// Retorna valores crudos para rangos de procesamiento especial 
 async function getSheetData(sheetName, range) {
     const auth = new google.auth.GoogleAuth({
         keyFile: CREDENTIALS_PATH,
-        scopes: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+        scopes: 'https.www.googleapis.com/auth/spreadsheets.readonly',
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
@@ -85,7 +86,6 @@ async function getSheetData(sheetName, range) {
         if (!values || values.length === 0) return [];
 
         // *** EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
-        // (El rango modificado RANGO_TASAS_COP_VES ya está incluido aquí)
         if ((sheetName === HOJA_GANANCIA && (range === RANGO_TASAS_VES || range === RANGO_HEADERS_GANANCIA)) ||
              (sheetName === HOJA_IMAGEN && (range === RANGO_IMAGEN || range === RANGO_FUNDABLOCK || range === RANGO_TASAS_COP_VES || range === RANGO_DATOS_B24_L25))) {
             return values;
@@ -124,8 +124,7 @@ app.get('/', (req, res) => {
         { path: '/tasas-promedio', description: 'DATOS MAESTROS: Tasas de Precios Promedio (última fila, Hoja Mercado)' },
         { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
         { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
-        // *** 2. MODIFICACIÓN SOLICITADA ***
-        { path: NUEVA_RUTA_TASAS_COP_VES, description: 'NUEVO: Tasas COP/VES (Hoja Imagen, Rango B21:L23)' }, // <--- RANGO ACTUALIZADO
+        { path: NUEVA_RUTA_TASAS_COP_VES, description: 'NUEVO: Tasas COP/VES (Hoja Imagen, Rango B21:L23)' }, 
         { path: NUEVA_RUTA_DATOS_B24_L25, description: 'NUEVO: Datos Adicionales (Hoja Imagen, Rango B24:L25)' }, 
         { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
         { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'TASAS FUNDABLOCK (Hoja Imagen, Rango B18:K19)' },
@@ -176,9 +175,9 @@ app.get('/', (req, res) => {
     res.send(htmlContent);
 });
 
-// --- RUTAS DE DATOS ORIGINALES (NO SE MODIFICAN) ---
+// --- RUTAS DE DATOS ---
 
-// 1. Obtener la última fila de Precios Promedio (Hoja Mercado)
+// 1. /tasas-promedio (Hoja Mercado)
 app.get('/tasas-promedio', async (req, res) => {
     try {
         let data = await getSheetData(HOJA_PRECIOS, RANGO_PRECIOS);
@@ -189,7 +188,7 @@ app.get('/tasas-promedio', async (req, res) => {
     }
 });
 
-// 2. Obtener la Matriz de Ganancia (Hoja Miguelacho)
+// 2. /matriz-ganancia (Hoja Miguelacho)
 app.get('/matriz-ganancia', async (req, res) => {
     try {
         const data = await getSheetData(HOJA_GANANCIA, RANGO_GANANCIA);
@@ -200,7 +199,7 @@ app.get('/matriz-ganancia', async (req, res) => {
     }
 });
 
-// 3. TASA VES (RUTA CORREGIDA PARA DEVOLVER EL OBJETO)
+// 3. /tasas-ves (Hoja Miguelacho, Fila 23)
 app.get('/tasas-ves', async (req, res) => {
     try {
         const headersArray = await getSheetData(HOJA_GANANCIA, RANGO_HEADERS_GANANCIA); 
@@ -216,7 +215,9 @@ app.get('/tasas-ves', async (req, res) => {
         const resultObject = {};
         if (Array.isArray(headers) && Array.isArray(values)) {
             headers.forEach((header, index) => {
-                resultObject[header.trim() || `Columna${index}`] = values[index] || '';
+                // *** CORRECCIÓN DE BUG: Convertir header a String antes de .trim() ***
+                const key = header ? String(header).trim() : `Columna${index}`;
+                resultObject[key] = values[index] || '';
             });
         }
         
@@ -228,4 +229,145 @@ app.get('/tasas-ves', async (req, res) => {
     }
 });
 
-// 4. Obtener Datos de Imagen (Hoja Imagen, Rango B15:L16)
+// 4. /datos-imagen (Hoja Imagen, Rango B15:L16)
+app.get('/datos-imagen', async (req, res) => {
+    try {
+        const data = await getSheetData(HOJA_IMAGEN, RANGO_IMAGEN);
+        res.json(data);
+    } catch (error) {
+        console.error('Error en /datos-imagen: ', error.message);
+        res.status(500).json({ error: 'Error al obtener datos de Imagen.', detalle: error.message });
+    }
+});
+
+
+// 5. /tasas-fundablock (Hoja Imagen, Rango B18:K19)
+app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
+    try {
+        const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
+        if (!dataMatrix || dataMatrix.length < 2) { 
+            return res.json([]);
+        }
+        const ratesObject = {};
+        const headers = dataMatrix[0] || [];
+        const values = dataMatrix[1] || []; 
+        
+        if (Array.isArray(headers) && Array.isArray(values)) {
+            for (let index = 0; index < values.length; index++) {
+                // *** CORRECCIÓN DE BUG: Convertir header a String antes de .trim() ***
+                const key = headers[index] ? String(headers[index]).trim().toUpperCase() : null;
+                const value = values[index] || '';
+                if (key) {
+                    ratesObject[key] = value.replace(',', '.'); 
+                }
+            }
+        }
+        res.json([ratesObject]);
+    } catch (error) {
+        console.error(`Error en ${NUEVA_RUTA_TASAS_FUNDABLOCK}: `, error.message);
+        res.status(500).json({ 
+            error: 'Error al obtener tasas Fundablock.', 
+            detalle: error.message 
+        });
+    }
+});
+
+// 6. /tasas-cop_ves (Hoja Imagen, Rango B21:L23) - LÓGICA MODIFICADA
+app.get(NUEVA_RUTA_TASAS_COP_VES, async (req, res) => {
+    try {
+        const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_TASAS_COP_VES); 
+
+        if (!dataMatrix || dataMatrix.length < 2) { 
+            return res.json([]);
+        }
+
+        const headers = dataMatrix[0] || []; // Fila 21: Claves
+        const dataRows = dataMatrix.slice(1); // Filas 22 y 23
+        
+        const resultsArray = [];
+        
+        if (Array.isArray(headers) && Array.isArray(dataRows)) {
+            
+            dataRows.forEach(rowValues => {
+                const rowObject = {};
+                for (let index = 0; index < rowValues.length; index++) {
+                    // *** CORRECCIÓN DE BUG: Convertir header a String antes de .trim() ***
+                    const key = headers[index] ? String(headers[index]).trim().toUpperCase() : null;
+                    const value = rowValues[index] || '';
+
+                    if (key) {
+                        rowObject[key] = value.replace(',', '.'); 
+                    }
+                }
+                if (Object.keys(rowObject).length > 0) {
+                     resultsArray.push(rowObject);
+                }
+            });
+        }
+        
+        res.json(resultsArray); // Devuelve [ {fila 22}, {fila 23} ]
+
+    } catch (error) {
+        console.error(`Error en ${NUEVA_RUTA_TASAS_COP_VES}: `, error.message);
+        res.status(500).json({ 
+            error: 'Error al obtener tasas COP/VES.', 
+            detalle: error.message 
+        });
+    }
+});
+
+
+// 7. /datos-b24_l25 (Hoja Imagen, Rango B24:L25)
+app.get(NUEVA_RUTA_DATOS_B24_L25, async (req, res) => {
+    try {
+        const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_DATOS_B24_L25); 
+
+        if (!dataMatrix || dataMatrix.length < 2) { 
+            return res.json([]);
+        }
+
+        const dataObject = {};
+        const headers = dataMatrix[0] || []; // Fila 24: Claves
+        const values = dataMatrix[1] || [];  // Fila 25: Valores
+        
+        if (Array.isArray(headers) && Array.isArray(values)) {
+            for (let index = 0; index < values.length; index++) {
+                // *** CORRECCIÓN DE BUG: Convertir header a String antes de .trim() ***
+                const key = headers[index] ? String(headers[index]).trim().toUpperCase() : null;
+                const value = values[index] || '';
+
+                if (key) {
+                    dataObject[key] = value.replace(',', '.'); 
+                }
+            }
+        }
+        
+        res.json([dataObject]);
+
+    } catch (error) {
+        console.error(`Error en ${NUEVA_RUTA_DATOS_B24_L25}: `, error.message);
+        res.status(500).json({ 
+            error: 'Error al obtener datos B24:L25.', 
+            detalle: error.message 
+        });
+    }
+});
+
+
+// 8. /convertir (Servicio de Conversión)
+app.get('/convertir', async (req, res) => {
+    // ... (código existente)
+    res.status(501).json({ error: 'Servicio de conversión no implementado en este fragmento.' });
+});
+
+// --- INICIO DEL SERVIDOR ---
+app.listen(PORT, () => {
+    console.log(`Servidor de NOCTUS API escuchando en el puerto: ${PORT}`);
+    console.log(`Acceso API de prueba: http://localhost:${PORT}/`);
+});
+
+// --- MANEJADOR DE APAGADO ELEGANTE ---
+process.on('SIGTERM', () => {
+    console.log('[SHUTDOWN] Señal SIGTERM recibida. Terminando proceso de NOCTUS...');
+    process.exit(0);
+});
