@@ -27,6 +27,10 @@ const NUEVA_RUTA_TASAS_FUNDABLOCK = '/tasas-fundablock'; // Ruta anterior
 const RANGO_TASAS_COP_VES = 'B21:L22';
 const NUEVA_RUTA_TASAS_COP_VES = '/tasas-cop_ves';
 
+// *** 1. NUEVAS CONSTANTES PARA EL ENDPOINT SOLICITADO (B24:L25) ***
+const RANGO_DATOS_B24_L25 = 'B24:L25';
+const NUEVA_RUTA_DATOS_B24_L25 = '/datos-b24_l25'; // Ruta para el nuevo endpoint
+
 // --- CONSTANTE Y FUNCIONES PARA EL SERVICIO DE CONVERSIÓN ---
 
 // Convierte cadena con coma decimal a número (ej. "0,93" -> 0.93)
@@ -79,10 +83,10 @@ async function getSheetData(sheetName, range) {
         const values = response.data.values;
         if (!values || values.length === 0) return [];
 
-        // *** EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
-        // Añadimos el nuevo rango RANGO_TASAS_COP_VES a la excepción
+        // *** 2. EXCEPCIÓN: Retornar valores crudos para el procesamiento manual ***
+        // Añadimos el nuevo rango RANGO_DATOS_B24_L25 a la excepción
         if ((sheetName === HOJA_GANANCIA && (range === RANGO_TASAS_VES || range === RANGO_HEADERS_GANANCIA)) ||
-             (sheetName === HOJA_IMAGEN && (range === RANGO_IMAGEN || range === RANGO_FUNDABLOCK || range === RANGO_TASAS_COP_VES))) {
+             (sheetName === HOJA_IMAGEN && (range === RANGO_IMAGEN || range === RANGO_FUNDABLOCK || range === RANGO_TASAS_COP_VES || range === RANGO_DATOS_B24_L25))) {
             return values;
         }
 
@@ -120,6 +124,8 @@ app.get('/', (req, res) => {
         { path: '/matriz-ganancia', description: 'DATOS MAESTROS: Matriz de Ganancia Estática (Hoja Miguelacho)' },
         { path: '/tasas-ves', description: 'DATOS: Tasa de Ganancia VES (Hoja Miguelacho, Fila 23)' }, 
         { path: NUEVA_RUTA_TASAS_COP_VES, description: 'NUEVO: Tasas COP/VES (Hoja Imagen, Rango B21:L22)' }, // NUEVA RUTA
+        // *** 3. AÑADIDO NUEVO ENDPOINT A LA DOCUMENTACIÓN ***
+        { path: NUEVA_RUTA_DATOS_B24_L25, description: 'NUEVO: Datos Adicionales (Hoja Imagen, Rango B24:L25)' }, 
         { path: '/datos-imagen', description: 'DATOS ADICIONALES: Datos de la Hoja Imagen (Rango B15:L16)' }, 
         { path: NUEVA_RUTA_TASAS_FUNDABLOCK, description: 'TASAS FUNDABLOCK (Hoja Imagen, Rango B18:K19)' },
         { path: '/convertir?cantidad=100&origen=USD&destino=COP', description: 'Servicio de Conversión (Calculadora Centralizada)' }
@@ -207,7 +213,7 @@ app.get('/tasas-ves', async (req, res) => {
         // Asumimos que los valores están en la fila 0 de cada array devuelto por getSheetData
         const headers = headersArray[0];
         const values = valuesArray[0];
-            
+                
         const resultObject = {};
         if (Array.isArray(headers) && Array.isArray(values)) {
             headers.forEach((header, index) => {
@@ -238,7 +244,35 @@ app.get('/datos-imagen', async (req, res) => {
 
 // === ENDPOINT EXISTENTE: /tasas-fundablock (NO SE MODIFICA SU FUNCIÓN) ===
 app.get(NUEVA_RUTA_TASAS_FUNDABLOCK, async (req, res) => {
-    // Código de la ruta /tasas-fundablock
+    // ... (Código de la ruta /tasas-fundablock)
+    // Asumo que el código existente para /tasas-fundablock está aquí
+    // Por coherencia, debería ser similar al de /tasas-cop_ves si B18:K19 son 2 filas
+    try {
+        const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_FUNDABLOCK); 
+        if (!dataMatrix || dataMatrix.length < 2) { 
+            return res.json([]);
+        }
+        const ratesObject = {};
+        const headers = dataMatrix[0] || [];
+        const values = dataMatrix[1] || []; 
+        
+        if (Array.isArray(headers) && Array.isArray(values)) {
+            for (let index = 0; index < values.length; index++) {
+                const key = headers[index] ? headers[index].trim().toUpperCase() : null;
+                const value = values[index] || '';
+                if (key) {
+                    ratesObject[key] = value.replace(',', '.'); 
+                }
+            }
+        }
+        res.json([ratesObject]);
+    } catch (error) {
+        console.error(`Error en ${NUEVA_RUTA_TASAS_FUNDABLOCK}: `, error.message);
+        res.status(500).json({ 
+            error: 'Error al obtener tasas Fundablock.', 
+            detalle: error.message 
+        });
+    }
 });
 
 // =========================================================================
@@ -290,9 +324,59 @@ app.get(NUEVA_RUTA_TASAS_COP_VES, async (req, res) => {
 });
 
 
+// =========================================================================
+// === *** 4. NUEVO ENDPOINT SOLICITADO (Rango B24:L25) *** =================
+// =========================================================================
+
+/**
+ * Endpoint para obtener los datos del rango B24:L25 (Claves y Valores)
+ * y formatearlas como un solo objeto JSON {clave: valor}
+ */
+app.get(NUEVA_RUTA_DATOS_B24_L25, async (req, res) => {
+    try {
+        // 1. Obtener los valores crudos del rango B24:L25
+        const dataMatrix = await getSheetData(HOJA_IMAGEN, RANGO_DATOS_B24_L25); 
+
+        // Verificamos que haya al menos dos filas (B24: Claves y B25: Valores)
+        if (!dataMatrix || dataMatrix.length < 2) { 
+            return res.json([]);
+        }
+
+        const dataObject = {};
+        const headers = dataMatrix[0] || []; // Fila 24: Claves
+        const values = dataMatrix[1] || [];  // Fila 25: Valores
+        
+        // 2. Procesar las dos filas (lógica idéntica a /tasas-cop_ves)
+        if (Array.isArray(headers) && Array.isArray(values)) {
+            for (let index = 0; index < values.length; index++) {
+                const key = headers[index] ? headers[index].trim().toUpperCase() : null;
+                const value = values[index] || '';
+
+                if (key) {
+                    // Normalizar la coma a punto decimal
+                    dataObject[key] = value.replace(',', '.'); 
+                }
+            }
+        }
+        
+        // 3. Devolver un array con el objeto final
+        res.json([dataObject]);
+
+    } catch (error) {
+        console.error(`Error en ${NUEVA_RUTA_DATOS_B24_L25}: `, error.message);
+        res.status(500).json({ 
+            error: 'Error al obtener datos B24:L25.', 
+            detalle: error.message 
+        });
+    }
+});
+
+
 // 5. SERVICIO DE CONVERSIÓN CENTRALIZADO (RUTA ORIGINAL)
 app.get('/convertir', async (req, res) => {
     // ... (código existente)
+    // Asumo que aquí va tu lógica de conversión
+    res.status(501).json({ error: 'Servicio de conversión no implementado en este fragmento.' });
 });
 
 // --- INICIO DEL SERVIDOR (NO SE MODIFICA) ---
